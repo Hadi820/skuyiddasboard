@@ -1,377 +1,250 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { format, parseISO } from "date-fns"
-import { id } from "date-fns/locale"
-import {
-  getAllStorTransactions,
-  getStorBalance,
-  getTotalDeposits,
-  getTotalWithdrawals,
-  addStorTransaction,
-} from "@/services/stor-service"
-import { ArrowDownCircle, ArrowUpCircle, Download, Search } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { Plus } from "lucide-react"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarIcon } from "lucide-react"
+import { getAllStorTransactions, getStorBalance, addStorTransaction } from "@/services/stor-service"
 
 export function StorFundDashboard() {
   const { toast } = useToast()
+  const [showTransactionForm, setShowTransactionForm] = useState(false)
   const [transactions, setTransactions] = useState<any[]>([])
   const [balance, setBalance] = useState(0)
-  const [totalDeposits, setTotalDeposits] = useState(0)
-  const [totalWithdrawals, setTotalWithdrawals] = useState(0)
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [transactionType, setTransactionType] = useState<"deposit" | "withdrawal">("deposit")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [newTransaction, setNewTransaction] = useState({
+  const [formData, setFormData] = useState({
+    type: "deposit",
     amount: "",
     description: "",
+    date: new Date(),
+    createdBy: "admin",
   })
 
+  // Load transactions and balance
   useEffect(() => {
     loadData()
   }, [])
 
   const loadData = () => {
-    const allTransactions = getAllStorTransactions()
-    setTransactions(allTransactions)
+    setTransactions(getAllStorTransactions())
     setBalance(getStorBalance())
-    setTotalDeposits(getTotalDeposits())
-    setTotalWithdrawals(getTotalWithdrawals())
   }
 
-  const handleAddTransaction = () => {
-    if (!newTransaction.amount || !newTransaction.description) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Mohon lengkapi semua field yang diperlukan.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const amount = Number.parseFloat(newTransaction.amount)
-    if (isNaN(amount) || amount <= 0) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Jumlah harus berupa angka positif.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validasi saldo cukup untuk penarikan
-    if (transactionType === "withdrawal" && amount > balance) {
-      toast({
-        title: "Saldo Tidak Cukup",
-        description: "Jumlah penarikan melebihi saldo yang tersedia.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    addStorTransaction({
-      amount,
-      type: transactionType,
-      description: newTransaction.description,
-      date: new Date().toISOString(),
-      createdBy: "admin", // Hardcoded for now, should be from auth context
-    })
-
-    toast({
-      title: "Transaksi Berhasil",
-      description: `${transactionType === "deposit" ? "Setoran" : "Penarikan"} sebesar Rp ${amount.toLocaleString()} telah berhasil dicatat.`,
-    })
-
-    setNewTransaction({
-      amount: "",
-      description: "",
-    })
-    setIsAddDialogOpen(false)
-    loadData()
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
   }
 
-  const filteredTransactions = transactions.filter(
-    (transaction) =>
-      transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.id.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate form
+    if (!formData.amount || !formData.description) {
+      toast({
+        title: "Validasi Gagal",
+        description: "Mohon lengkapi jumlah dan deskripsi transaksi.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Prepare transaction data
+      const transactionData = {
+        ...formData,
+        amount: Number.parseFloat(formData.amount),
+        date: format(formData.date, "yyyy-MM-dd'T'HH:mm:ss"),
+      }
+
+      // Save data using service
+      addStorTransaction(transactionData)
+      toast({
+        title: "Transaksi Berhasil",
+        description: "Transaksi harga stor telah berhasil dicatat.",
+      })
+
+      // Reset form and reload data
+      setFormData({
+        type: "deposit",
+        amount: "",
+        description: "",
+        date: new Date(),
+        createdBy: "admin",
+      })
+      setShowTransactionForm(false)
+      loadData()
+    } catch (error) {
+      console.error("Error saving transaction:", error)
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat menyimpan transaksi.",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Harga Stor</h2>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setTransactionType("deposit")
-              setIsAddDialogOpen(true)
-            }}
-          >
-            <ArrowDownCircle className="h-4 w-4 mr-2" />
-            Tambah Setoran
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setTransactionType("withdrawal")
-              setIsAddDialogOpen(true)
-            }}
-          >
-            <ArrowUpCircle className="h-4 w-4 mr-2" />
-            Tambah Penarikan
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Ekspor
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-500">Saldo Harga Stor</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Rp {balance.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Setoran</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">Rp {totalDeposits.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">Total Penarikan</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">Rp {totalWithdrawals.toLocaleString()}</div>
+            <p className="text-xs text-gray-500 mt-1">Saldo saat ini</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <CardTitle>Riwayat Transaksi</CardTitle>
-              <CardDescription>Riwayat setoran dan penarikan Harga Stor</CardDescription>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                type="search"
-                placeholder="Cari transaksi..."
-                className="pl-8 w-full md:w-[250px]"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Transaksi Harga Stor</CardTitle>
+          <Button onClick={() => setShowTransactionForm(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Tambah Transaksi
+          </Button>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all">
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">Semua</TabsTrigger>
-              <TabsTrigger value="deposits">Setoran</TabsTrigger>
-              <TabsTrigger value="withdrawals">Penarikan</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="all">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 text-left">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Deskripsi
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipe</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                        Jumlah
-                      </th>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipe</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
+                    Jumlah
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Dibuat Oleh</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                      Tidak ada transaksi yang ditemukan
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-[#4f46e5]">{transaction.id}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {format(new Date(transaction.date), "dd MMM yyyy", { locale: id })}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${
+                            transaction.type === "deposit" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {transaction.type === "deposit" ? "Setoran" : "Penarikan"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{transaction.description}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-right">
+                        <span className={transaction.type === "deposit" ? "text-green-600" : "text-red-600"}>
+                          {transaction.type === "deposit" ? "+" : "-"} Rp {transaction.amount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{transaction.createdBy}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredTransactions.length > 0 ? (
-                      filteredTransactions.map((transaction) => (
-                        <tr key={transaction.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{transaction.id}</td>
-                          <td className="px-4 py-3">
-                            {format(parseISO(transaction.date), "dd MMM yyyy HH:mm", { locale: id })}
-                          </td>
-                          <td className="px-4 py-3">{transaction.description}</td>
-                          <td className="px-4 py-3">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-md ${
-                                transaction.type === "deposit"
-                                  ? "bg-[#dcfce7] text-[#166534]"
-                                  : "bg-[#fee2e2] text-[#991b1b]"
-                              }`}
-                            >
-                              {transaction.type === "deposit" ? (
-                                <>
-                                  <ArrowDownCircle className="h-3 w-3 mr-1" />
-                                  Setoran
-                                </>
-                              ) : (
-                                <>
-                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                  Penarikan
-                                </>
-                              )}
-                            </span>
-                          </td>
-                          <td
-                            className={`px-4 py-3 font-medium text-right ${
-                              transaction.type === "deposit" ? "text-green-600" : "text-red-600"
-                            }`}
-                          >
-                            {transaction.type === "deposit" ? "+" : "-"}Rp {transaction.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
-                          Tidak ada transaksi yang ditemukan
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="deposits">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 text-left">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Deskripsi
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                        Jumlah
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredTransactions
-                      .filter((transaction) => transaction.type === "deposit")
-                      .map((transaction) => (
-                        <tr key={transaction.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{transaction.id}</td>
-                          <td className="px-4 py-3">
-                            {format(parseISO(transaction.date), "dd MMM yyyy HH:mm", { locale: id })}
-                          </td>
-                          <td className="px-4 py-3">{transaction.description}</td>
-                          <td className="px-4 py-3 font-medium text-right text-green-600">
-                            +Rp {transaction.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="withdrawals">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 text-left">
-                    <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Deskripsi
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                        Jumlah
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredTransactions
-                      .filter((transaction) => transaction.type === "withdrawal")
-                      .map((transaction) => (
-                        <tr key={transaction.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 font-medium">{transaction.id}</td>
-                          <td className="px-4 py-3">
-                            {format(parseISO(transaction.date), "dd MMM yyyy HH:mm", { locale: id })}
-                          </td>
-                          <td className="px-4 py-3">{transaction.description}</td>
-                          <td className="px-4 py-3 font-medium text-right text-red-600">
-                            -Rp {transaction.amount.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </TabsContent>
-          </Tabs>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Add Transaction Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
+      <Dialog open={showTransactionForm} onOpenChange={setShowTransactionForm}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {transactionType === "deposit" ? "Tambah Setoran" : "Tambah Penarikan"} Harga Stor
-            </DialogTitle>
+            <DialogTitle>Tambah Transaksi Harga Stor</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Jumlah</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5">Rp</span>
-                <Input
-                  id="amount"
-                  type="number"
-                  placeholder="0"
-                  className="pl-10"
-                  value={newTransaction.amount}
-                  onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
-                />
-              </div>
+              <Label htmlFor="type">Tipe Transaksi</Label>
+              <Select value={formData.type} onValueChange={(value) => handleChange("type", value)}>
+                <SelectTrigger id="type">
+                  <SelectValue placeholder="Pilih tipe transaksi" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deposit">Setoran</SelectItem>
+                  <SelectItem value="withdrawal">Penarikan</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Jumlah (Rp)</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={formData.amount}
+                onChange={(e) => handleChange("amount", e.target.value)}
+                placeholder="0"
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="description">Deskripsi</Label>
               <Textarea
                 id="description"
-                placeholder="Masukkan deskripsi transaksi"
-                value={newTransaction.description}
-                onChange={(e) => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                value={formData.description}
+                onChange={(e) => handleChange("description", e.target.value)}
+                placeholder="Deskripsi transaksi"
+                rows={3}
+                required
               />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-              Batal
-            </Button>
-            <Button onClick={handleAddTransaction}>
-              {transactionType === "deposit" ? "Tambah Setoran" : "Tambah Penarikan"}
-            </Button>
-          </DialogFooter>
+
+            <div className="space-y-2">
+              <Label>Tanggal</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.date ? format(formData.date, "dd MMMM yyyy", { locale: id }) : <span>Pilih tanggal</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.date}
+                    onSelect={(date) => handleChange("date", date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setShowTransactionForm(false)}>
+                Batal
+              </Button>
+              <Button type="submit">Simpan Transaksi</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }

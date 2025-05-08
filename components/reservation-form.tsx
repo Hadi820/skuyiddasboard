@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import type { Reservation } from "@/types/reservation"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -10,179 +11,139 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
+import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
-import { CalendarIcon, Loader2, LockIcon } from "lucide-react"
+import { CalendarIcon } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { addReservation, updateReservation } from "@/services/reservation-service"
-import { isAdmin } from "@/services/auth-service"
-import type { Reservation } from "@/types/reservation"
+import { getAllClients } from "@/services/client-service"
 
 interface ReservationFormProps {
-  reservation?: any
+  reservation?: Reservation
   onSuccess?: () => void
-  selectedDate?: Date
 }
 
-// Daftar GRO
-const GRO_OPTIONS = ["ILPAN", "JAMAL", "BANG NUNG", "DEWI", "SANTI", "RINI", "BUDI", "ANDI"]
-
-// Daftar Kategori
-const CATEGORY_OPTIONS = ["Akomodasi", "Transportasi", "Trip", "Kuliner", "Event", "Meeting", "Photoshoot", "Lainnya"]
-
-// Daftar Status
-const STATUS_OPTIONS = ["Pending", "Proses", "Selesai", "Batal"]
-
-export function ReservationForm({ reservation, onSuccess, selectedDate }: ReservationFormProps) {
+export function ReservationForm({ reservation, onSuccess }: ReservationFormProps) {
   const { toast } = useToast()
-  const [userIsAdmin, setUserIsAdmin] = useState(true) // Default to true until we check
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [clients, setClients] = useState<any[]>([])
   const [formData, setFormData] = useState({
-    bookingCode: "",
-    bookingDate: new Date().toISOString().split("T")[0],
     customerName: "",
     phoneNumber: "",
-    checkIn: selectedDate || new Date(),
-    checkOut: selectedDate
-      ? new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000)
-      : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    tripSchedule: "",
+    email: "",
+    checkIn: new Date(),
+    checkOut: addDays(new Date(), 1),
     orderDetails: "",
-    gro: "",
-    category: "Akomodasi",
-    finalPrice: "",
-    customerDeposit: "",
-    partnerDeposit: "",
-    basePrice: "",
-    status: "Pending",
+    category: "villa",
+    status: "confirmed",
+    gro: "Admin Staff 1",
+    bookingCode: "",
+    paymentStatus: "unpaid",
+    paymentMethod: "",
+    basePrice: 0,
+    additionalFees: 0,
+    discount: 0,
+    finalPrice: 0,
     notes: "",
   })
 
+  // Load clients
   useEffect(() => {
-    // Check if user is admin
-    setUserIsAdmin(isAdmin())
+    setClients(getAllClients())
   }, [])
 
   useEffect(() => {
     if (reservation) {
-      // Convert string dates to Date objects for the form
-      const checkInDate = new Date(reservation.checkIn)
-      const checkOutDate = new Date(reservation.checkOut)
-
       setFormData({
-        bookingCode: reservation.bookingCode || "",
-        bookingDate: reservation.bookingDate || new Date().toISOString().split("T")[0],
         customerName: reservation.customerName || "",
         phoneNumber: reservation.phoneNumber || "",
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
-        tripSchedule: reservation.tripSchedule || "",
+        email: reservation.email || "",
+        checkIn: new Date(reservation.checkIn) || new Date(),
+        checkOut: new Date(reservation.checkOut) || addDays(new Date(), 1),
         orderDetails: reservation.orderDetails || "",
-        gro: reservation.gro || "",
-        category: reservation.category || "Akomodasi",
-        finalPrice: reservation.finalPrice?.toString() || "",
-        customerDeposit: reservation.customerDeposit?.toString() || "",
-        partnerDeposit: reservation.partnerDeposit?.toString() || "",
-        basePrice: reservation.basePrice?.toString() || "",
-        status: reservation.status || "Pending",
+        category: reservation.category || "villa",
+        status: reservation.status || "confirmed",
+        gro: reservation.gro || "Admin Staff 1",
+        bookingCode: reservation.bookingCode || "",
+        paymentStatus: reservation.paymentStatus || "unpaid",
+        paymentMethod: reservation.paymentMethod || "",
+        basePrice: reservation.basePrice || 0,
+        additionalFees: reservation.additionalFees || 0,
+        discount: reservation.discount || 0,
+        finalPrice: reservation.finalPrice || 0,
         notes: reservation.notes || "",
       })
-    } else if (selectedDate) {
-      // If a date was selected from the calendar, use it for check-in
-      setFormData((prev) => ({
-        ...prev,
-        checkIn: selectedDate,
-        checkOut: new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000), // Default to next day checkout
-      }))
     } else {
-      // Generate a new booking code for new reservations
-      const today = new Date()
-      const year = today.getFullYear()
-      const month = String(today.getMonth() + 1).padStart(2, "0")
-      const day = String(today.getDate()).padStart(2, "0")
-      const randomNum = Math.floor(Math.random() * 1000)
+      // Generate a new booking code
+      const prefix = "BK"
+      const date = format(new Date(), "yyyyMMdd")
+      const random = Math.floor(Math.random() * 1000)
         .toString()
         .padStart(3, "0")
       setFormData((prev) => ({
         ...prev,
-        bookingCode: `BK-${year}${month}${day}-${randomNum}`,
+        bookingCode: `${prefix}${date}${random}`,
       }))
     }
-  }, [reservation, selectedDate])
+  }, [reservation])
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }))
+
+    // Recalculate final price if price-related fields change
+    if (["basePrice", "additionalFees", "discount"].includes(field)) {
+      calculateFinalPrice({
+        ...formData,
+        [field]: value,
+      })
+    }
+  }
+
+  const calculateFinalPrice = (data: any) => {
+    const total = data.basePrice + data.additionalFees - data.discount
+    setFormData((prev) => ({
+      ...prev,
+      finalPrice: total,
+    }))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
     // Validate form
-    if (!formData.customerName || !formData.category || !formData.finalPrice) {
+    if (!formData.customerName || !formData.phoneNumber) {
       toast({
         title: "Validasi Gagal",
-        description: "Mohon lengkapi semua field yang diperlukan.",
+        description: "Mohon lengkapi nama pelanggan dan nomor telepon.",
         variant: "destructive",
       })
-      setIsSubmitting(false)
       return
     }
 
-    // Calculate derived values
-    const finalPrice = Number(formData.finalPrice)
-    const customerDeposit = Number(formData.customerDeposit)
-    const basePrice = Number(formData.basePrice)
-    const profit = finalPrice - basePrice
-    const remainingPayment = finalPrice - customerDeposit
-
-    // Format dates to ISO string for storage
-    const checkInStr = formData.checkIn.toISOString().split("T")[0]
-    const checkOutStr = formData.checkOut.toISOString().split("T")[0]
-
-    // Create reservation data object
-    const reservationData = {
-      bookingCode: formData.bookingCode,
-      bookingDate: formData.bookingDate,
-      customerName: formData.customerName,
-      phoneNumber: formData.phoneNumber,
-      checkIn: checkInStr,
-      checkOut: checkOutStr,
-      tripSchedule: formData.tripSchedule || null,
-      orderDetails: formData.orderDetails,
-      gro: formData.gro,
-      category: formData.category,
-      finalPrice,
-      customerDeposit,
-      partnerDeposit: Number(formData.partnerDeposit),
-      remainingPayment,
-      basePrice,
-      profit,
-      status: formData.status as "Pending" | "Proses" | "Selesai" | "Batal",
-      notes: formData.notes,
-    }
-
     try {
-      // Update or add reservation using service
+      // Prepare reservation data
+      const reservationData = {
+        ...formData,
+        checkIn: format(formData.checkIn, "yyyy-MM-dd'T'HH:mm:ss"),
+        checkOut: format(formData.checkOut, "yyyy-MM-dd'T'HH:mm:ss"),
+      }
+
+      // Save data using service
       if (reservation) {
         updateReservation(reservation.id, reservationData)
         toast({
           title: "Reservasi Diperbarui",
-          description: "Reservasi telah berhasil diperbarui.",
+          description: "Data reservasi telah berhasil diperbarui.",
         })
       } else {
-        addReservation(reservationData as Omit<Reservation, "id">)
+        addReservation(reservationData)
         toast({
           title: "Reservasi Dibuat",
           description: "Reservasi baru telah berhasil dibuat.",
         })
       }
-
-      setIsSubmitting(false)
 
       if (onSuccess) {
         onSuccess()
@@ -191,64 +152,70 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
       console.error("Error saving reservation:", error)
       toast({
         title: "Error",
-        description: "Terjadi kesalahan saat menyimpan data reservasi.",
+        description: "Terjadi kesalahan saat menyimpan reservasi.",
         variant: "destructive",
       })
-      setIsSubmitting(false)
     }
   }
 
-  // Calculate derived values for display
-  const finalPrice = Number(formData.finalPrice) || 0
-  const customerDeposit = Number(formData.customerDeposit) || 0
-  const basePrice = Number(formData.basePrice) || 0
-  const profit = finalPrice - basePrice
-  const remainingPayment = finalPrice - customerDeposit
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <Label htmlFor="bookingCode">Kode Booking</Label>
-          <Input
-            id="bookingCode"
-            value={formData.bookingCode}
-            onChange={(e) => handleChange("bookingCode", e.target.value)}
-            placeholder="Contoh: BK-20250501-001"
-            required
-          />
+          <Label htmlFor="customerName">Nama Pelanggan</Label>
+          <Select value={formData.customerName} onValueChange={(value) => handleChange("customerName", value)}>
+            <SelectTrigger id="customerName">
+              <SelectValue placeholder="Pilih pelanggan" />
+            </SelectTrigger>
+            <SelectContent>
+              {clients.map((client) => (
+                <SelectItem key={client.id} value={client.name}>
+                  {client.name}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">Pelanggan Baru</SelectItem>
+            </SelectContent>
+          </Select>
+          {formData.customerName === "custom" && (
+            <Input
+              className="mt-2"
+              placeholder="Masukkan nama pelanggan baru"
+              value=""
+              onChange={(e) => handleChange("customerName", e.target.value)}
+            />
+          )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="bookingDate">Tanggal Booking</Label>
-          <Input
-            id="bookingDate"
-            type="date"
-            value={formData.bookingDate}
-            onChange={(e) => handleChange("bookingDate", e.target.value)}
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="customerName">Nama Pemesan</Label>
-          <Input
-            id="customerName"
-            value={formData.customerName}
-            onChange={(e) => handleChange("customerName", e.target.value)}
-            placeholder="Nama lengkap pemesan"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="phoneNumber">Nomor HP</Label>
+          <Label htmlFor="phoneNumber">Nomor Telepon</Label>
           <Input
             id="phoneNumber"
             value={formData.phoneNumber}
             onChange={(e) => handleChange("phoneNumber", e.target.value)}
             placeholder="Contoh: 081234567890"
             required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={formData.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            placeholder="email@example.com"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="bookingCode">Kode Booking</Label>
+          <Input
+            id="bookingCode"
+            value={formData.bookingCode}
+            onChange={(e) => handleChange("bookingCode", e.target.value)}
+            placeholder="Kode booking otomatis"
+            readOnly
           />
         </div>
 
@@ -269,7 +236,7 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
               <Calendar
                 mode="single"
                 selected={formData.checkIn}
-                onSelect={(date) => date && handleChange("checkIn", date)}
+                onSelect={(date) => handleChange("checkIn", date)}
                 initialFocus
               />
             </PopoverContent>
@@ -293,50 +260,12 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
               <Calendar
                 mode="single"
                 selected={formData.checkOut}
-                onSelect={(date) => date && handleChange("checkOut", date)}
+                onSelect={(date) => handleChange("checkOut", date)}
                 initialFocus
                 disabled={(date) => date < formData.checkIn}
               />
             </PopoverContent>
           </Popover>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="tripSchedule">Jadwal Trip</Label>
-          <Input
-            id="tripSchedule"
-            value={formData.tripSchedule}
-            onChange={(e) => handleChange("tripSchedule", e.target.value)}
-            placeholder="Contoh: 2025-05-11 (Pantai Kuta)"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="orderDetails">Detail Pesanan</Label>
-          <Input
-            id="orderDetails"
-            value={formData.orderDetails}
-            onChange={(e) => handleChange("orderDetails", e.target.value)}
-            placeholder="Contoh: Villa Utama - 2 Kamar"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="gro">GRO (Penanggung Jawab)</Label>
-          <Select value={formData.gro} onValueChange={(value) => handleChange("gro", value)}>
-            <SelectTrigger id="gro">
-              <SelectValue placeholder="Pilih GRO" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRO_OPTIONS.map((gro) => (
-                <SelectItem key={gro} value={gro}>
-                  {gro}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-gray-500">Contoh: ILPAN, JAMAL, BANG NUNG</p>
         </div>
 
         <div className="space-y-2">
@@ -346,123 +275,133 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
               <SelectValue placeholder="Pilih kategori" />
             </SelectTrigger>
             <SelectContent>
-              {CATEGORY_OPTIONS.map((category) => (
-                <SelectItem key={category} value={category}>
-                  {category}
-                </SelectItem>
-              ))}
+              <SelectItem value="villa">Villa</SelectItem>
+              <SelectItem value="hotel">Hotel</SelectItem>
+              <SelectItem value="tour">Tour</SelectItem>
+              <SelectItem value="transport">Transport</SelectItem>
+              <SelectItem value="other">Lainnya</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500">Contoh: Akomodasi, Transportasi, Trip, Kuliner</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="finalPrice">Harga Jadi (Rp)</Label>
-          <Input
-            id="finalPrice"
-            type="number"
-            value={formData.finalPrice}
-            onChange={(e) => handleChange("finalPrice", e.target.value)}
-            placeholder="Contoh: 5000000"
-            required
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="customerDeposit">DP &gt; Tamu (Rp)</Label>
-          <Input
-            id="customerDeposit"
-            type="number"
-            value={formData.customerDeposit}
-            onChange={(e) => handleChange("customerDeposit", e.target.value)}
-            placeholder="Contoh: 2500000"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="partnerDeposit">DP &gt; Mitra (Rp)</Label>
-          <Input
-            id="partnerDeposit"
-            type="number"
-            value={formData.partnerDeposit}
-            onChange={(e) => handleChange("partnerDeposit", e.target.value)}
-            placeholder="Contoh: 2000000"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="remainingPayment">Sisa Pembayaran (Tamu) (Rp)</Label>
-          <Input id="remainingPayment" type="number" value={remainingPayment} readOnly className="bg-gray-50" />
-        </div>
-
-        <TooltipProvider>
-          <div className="space-y-2">
-            <Label htmlFor="basePrice" className="flex items-center">
-              Harga Stor (Rp)
-              {!userIsAdmin && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <LockIcon className="ml-2 h-4 w-4 text-gray-400" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Hanya admin yang dapat mengakses kolom ini</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </Label>
-            <Input
-              id="basePrice"
-              type="number"
-              value={formData.basePrice}
-              onChange={(e) => handleChange("basePrice", e.target.value)}
-              placeholder="Contoh: 4000000"
-              required={userIsAdmin}
-              disabled={!userIsAdmin}
-              className={!userIsAdmin ? "bg-gray-100 cursor-not-allowed" : ""}
-            />
-          </div>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <div className="space-y-2">
-            <Label htmlFor="profit" className="flex items-center">
-              Pendapatan (Rp)
-              {!userIsAdmin && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <LockIcon className="ml-2 h-4 w-4 text-gray-400" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Hanya admin yang dapat melihat kolom ini</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
-            </Label>
-            <Input
-              id="profit"
-              type="number"
-              value={userIsAdmin ? profit : "********"}
-              readOnly
-              className="bg-gray-50"
-            />
-          </div>
-        </TooltipProvider>
-
-        <div className="space-y-2">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">Status Reservasi</Label>
           <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
             <SelectTrigger id="status">
               <SelectValue placeholder="Pilih status" />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((status) => (
-                <SelectItem key={status} value={status}>
-                  {status}
-                </SelectItem>
-              ))}
+              <SelectItem value="confirmed">Terkonfirmasi</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="cancelled">Dibatalkan</SelectItem>
+              <SelectItem value="completed">Selesai</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500">Contoh: Pending, Proses, Selesai, Batal</p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="gro">Admin Staff</Label>
+          <Select value={formData.gro} onValueChange={(value) => handleChange("gro", value)}>
+            <SelectTrigger id="gro">
+              <SelectValue placeholder="Pilih Admin Staff" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Admin Staff 1">Admin Staff 1</SelectItem>
+              <SelectItem value="Admin Staff 2">Admin Staff 2</SelectItem>
+              <SelectItem value="Admin Staff 3">Admin Staff 3</SelectItem>
+              <SelectItem value="Admin Staff 4">Admin Staff 4</SelectItem>
+              <SelectItem value="Admin Staff 5">Admin Staff 5</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="paymentStatus">Status Pembayaran</Label>
+          <Select value={formData.paymentStatus} onValueChange={(value) => handleChange("paymentStatus", value)}>
+            <SelectTrigger id="paymentStatus">
+              <SelectValue placeholder="Pilih status pembayaran" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="paid">Lunas</SelectItem>
+              <SelectItem value="partial">Sebagian</SelectItem>
+              <SelectItem value="unpaid">Belum Dibayar</SelectItem>
+              <SelectItem value="refunded">Dikembalikan</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="paymentMethod">Metode Pembayaran</Label>
+          <Select
+            value={formData.paymentMethod}
+            onValueChange={(value) => handleChange("paymentMethod", value)}
+            disabled={formData.paymentStatus === "unpaid"}
+          >
+            <SelectTrigger id="paymentMethod">
+              <SelectValue placeholder="Pilih metode pembayaran" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="transfer">Transfer Bank</SelectItem>
+              <SelectItem value="cash">Tunai</SelectItem>
+              <SelectItem value="credit_card">Kartu Kredit</SelectItem>
+              <SelectItem value="debit_card">Kartu Debit</SelectItem>
+              <SelectItem value="ewallet">E-Wallet</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="orderDetails">Detail Pesanan</Label>
+        <Textarea
+          id="orderDetails"
+          value={formData.orderDetails}
+          onChange={(e) => handleChange("orderDetails", e.target.value)}
+          placeholder="Masukkan detail pesanan"
+          rows={3}
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="basePrice">Harga Dasar</Label>
+          <Input
+            id="basePrice"
+            type="number"
+            value={formData.basePrice}
+            onChange={(e) => handleChange("basePrice", Number.parseFloat(e.target.value))}
+            placeholder="0"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="additionalFees">Biaya Tambahan</Label>
+          <Input
+            id="additionalFees"
+            type="number"
+            value={formData.additionalFees}
+            onChange={(e) => handleChange("additionalFees", Number.parseFloat(e.target.value))}
+            placeholder="0"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="discount">Diskon</Label>
+          <Input
+            id="discount"
+            type="number"
+            value={formData.discount}
+            onChange={(e) => handleChange("discount", Number.parseFloat(e.target.value))}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="font-medium">Total Harga</span>
+          <span className="font-bold text-lg">Rp {formData.finalPrice.toLocaleString()}</span>
         </div>
       </div>
 
@@ -473,7 +412,7 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
           value={formData.notes}
           onChange={(e) => handleChange("notes", e.target.value)}
           placeholder="Tambahkan catatan atau informasi tambahan di sini"
-          rows={4}
+          rows={3}
         />
       </div>
 
@@ -481,18 +420,7 @@ export function ReservationForm({ reservation, onSuccess, selectedDate }: Reserv
         <Button type="button" variant="outline" onClick={onSuccess}>
           Batal
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {reservation ? "Menyimpan..." : "Menambahkan..."}
-            </>
-          ) : reservation ? (
-            "Simpan Perubahan"
-          ) : (
-            "Buat Reservasi"
-          )}
-        </Button>
+        <Button type="submit">{reservation ? "Perbarui Reservasi" : "Tambah Reservasi"}</Button>
       </div>
     </form>
   )

@@ -4,206 +4,198 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { format } from "date-fns"
-import { id } from "date-fns/locale"
-import { CalendarIcon, Filter, Search, LockIcon } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ReservationForm } from "@/components/reservation-form"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import Link from "next/link"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
+import { CalendarIcon, Filter, Search } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ReservationForm } from "@/components/reservation-form"
+import { ReservationDetail } from "@/components/reservation-detail"
+import { useToast } from "@/components/ui/use-toast"
 import { getFilteredReservations } from "@/services/reservation-service"
 
-// Daftar Status
-const STATUS_OPTIONS = ["all", "Pending", "Proses", "Selesai", "Batal"]
-
-// Daftar Kategori
-const CATEGORY_OPTIONS = [
-  "all",
-  "Akomodasi",
-  "Transportasi",
-  "Trip",
-  "Kuliner",
-  "Event",
-  "Meeting",
-  "Photoshoot",
-  "Lainnya",
-]
-
 export function ReservationTable() {
-  const [isAdmin, setIsAdmin] = useState(true) // Default to true until we check
+  const { toast } = useToast()
+  const [showReservationForm, setShowReservationForm] = useState(false)
+  const [showReservationDetail, setShowReservationDetail] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [groFilter, setGroFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
-  const [selectedReservation, setSelectedReservation] = useState<any | null>(null)
-  const [showEditForm, setShowEditForm] = useState(false)
   const [reservations, setReservations] = useState<any[]>([])
+  const [selectedReservation, setSelectedReservation] = useState<any>(null)
 
+  // Load reservations
   useEffect(() => {
-    // Check if user is admin from localStorage
-    const user = localStorage.getItem("user")
-    if (user) {
-      try {
-        const userData = JSON.parse(user)
-        setIsAdmin(userData.role === "admin")
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-      }
+    loadReservations()
+  }, [statusFilter, categoryFilter, dateFilter, groFilter, searchTerm])
+
+  const loadReservations = () => {
+    const filteredReservations = getFilteredReservations({
+      status: statusFilter === "all" ? undefined : statusFilter,
+      category: categoryFilter === "all" ? undefined : categoryFilter,
+      date: dateFilter,
+      searchTerm: searchTerm,
+      gro: groFilter === "all" ? undefined : groFilter,
+    })
+    setReservations(filteredReservations)
+  }
+
+  const handleViewReservation = (reservation: any) => {
+    setSelectedReservation(reservation)
+    setShowReservationDetail(true)
+  }
+
+  const handleEditReservation = (reservation: any) => {
+    setSelectedReservation(reservation)
+    setShowReservationForm(true)
+  }
+
+  const handleFormSuccess = () => {
+    setShowReservationForm(false)
+    setSelectedReservation(null)
+    loadReservations()
+  }
+
+  const handleDetailClose = () => {
+    setShowReservationDetail(false)
+    setSelectedReservation(null)
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "confirmed":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Terkonfirmasi</Badge>
+      case "pending":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+      case "cancelled":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Dibatalkan</Badge>
+      case "completed":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Selesai</Badge>
+      default:
+        return <Badge>{status}</Badge>
     }
-  }, [])
+  }
 
-  // Load and filter reservations
-  useEffect(() => {
-    setReservations(
-      getFilteredReservations({
-        status: statusFilter !== "all" ? statusFilter : undefined,
-        category: categoryFilter !== "all" ? categoryFilter : undefined,
-        date: dateFilter,
-        searchTerm: searchTerm,
-      }),
-    )
-  }, [statusFilter, categoryFilter, dateFilter, searchTerm])
-
-  // Filter reservations based on search term, status, category, and date
-  // const filteredReservations = reservationsData.filter((reservation) => {
-  //   const matchesSearch =
-  //     reservation.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     reservation.bookingCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     reservation.phoneNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-  //     reservation.orderDetails.toLowerCase().includes(searchTerm.toLowerCase())
-
-  //   const matchesStatus = statusFilter === "all" || reservation.status === statusFilter
-
-  //   const matchesCategory = categoryFilter === "all" || reservation.category === categoryFilter
-
-  //   const matchesDate =
-  //     !dateFilter || (new Date(reservation.checkIn) <= dateFilter && new Date(reservation.checkOut) >= dateFilter)
-
-  //   return matchesSearch && matchesStatus && matchesCategory && matchesDate
-  // })
-
-  // Sort reservations by booking date (newest first)
-  const sortedReservations = [...reservations].sort(
-    (a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime(),
-  )
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(amount)
+  const getPaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case "paid":
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Lunas</Badge>
+      case "partial":
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Sebagian</Badge>
+      case "unpaid":
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Belum Dibayar</Badge>
+      case "refunded":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Dikembalikan</Badge>
+      default:
+        return <Badge>{status}</Badge>
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
+    <>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             type="search"
             placeholder="Cari reservasi..."
-            className="pl-8"
+            className="pl-8 w-full md:w-[250px]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Filter status" />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((status) => (
-              <SelectItem key={status} value={status}>
-                {status === "all" ? "Semua Status" : status}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter kategori" />
-          </SelectTrigger>
-          <SelectContent>
-            {CATEGORY_OPTIONS.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category === "all" ? "Semua Kategori" : category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="w-[180px] justify-start">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateFilter ? format(dateFilter, "dd MMMM yyyy", { locale: id }) : <span>Filter tanggal</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar mode="single" selected={dateFilter} onSelect={setDateFilter} initialFocus />
-            {dateFilter && (
-              <div className="p-3 border-t border-gray-100">
-                <Button variant="ghost" size="sm" onClick={() => setDateFilter(undefined)} className="w-full">
-                  Reset
-                </Button>
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
+        <div className="flex flex-col md:flex-row gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Status</SelectItem>
+              <SelectItem value="confirmed">Terkonfirmasi</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="cancelled">Dibatalkan</SelectItem>
+              <SelectItem value="completed">Selesai</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter kategori" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Kategori</SelectItem>
+              <SelectItem value="villa">Villa</SelectItem>
+              <SelectItem value="hotel">Hotel</SelectItem>
+              <SelectItem value="tour">Tour</SelectItem>
+              <SelectItem value="transport">Transport</SelectItem>
+              <SelectItem value="other">Lainnya</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={groFilter} onValueChange={setGroFilter}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter Admin Staff" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Admin Staff</SelectItem>
+              <SelectItem value="Admin Staff 1">Admin Staff 1</SelectItem>
+              <SelectItem value="Admin Staff 2">Admin Staff 2</SelectItem>
+              <SelectItem value="Admin Staff 3">Admin Staff 3</SelectItem>
+              <SelectItem value="Admin Staff 4">Admin Staff 4</SelectItem>
+              <SelectItem value="Admin Staff 5">Admin Staff 5</SelectItem>
+            </SelectContent>
+          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[180px] justify-start">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFilter ? format(dateFilter, "dd MMMM yyyy", { locale: id }) : <span>Filter tanggal</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={dateFilter} onSelect={setDateFilter} initialFocus />
+              {dateFilter && (
+                <div className="p-3 border-t border-gray-100">
+                  <Button variant="ghost" size="sm" onClick={() => setDateFilter(undefined)} className="w-full">
+                    Reset
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
-
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50 text-left">
             <tr>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">No</th>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Kode Booking</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal Booking</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Pemesan</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Detail Pesanan</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">GRO</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pelanggan</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Check-in</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Check-out</th>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jadi</th>
-              <TooltipProvider>
-                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <div className="flex items-center">
-                    Harga Stor
-                    {!isAdmin && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <LockIcon className="ml-1 h-3 w-3 text-gray-400" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Hanya admin yang dapat melihat kolom ini</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
-                </th>
-              </TooltipProvider>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pembayaran</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Admin Staff</th>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {sortedReservations.length === 0 ? (
+            {reservations.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   Tidak ada reservasi yang ditemukan
                 </td>
               </tr>
             ) : (
-              sortedReservations.map((reservation, index) => (
+              reservations.map((reservation) => (
                 <tr key={reservation.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{index + 1}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-[#4f46e5]">
-                    <Link href={`/calendar?id=${reservation.id}`}>{reservation.bookingCode}</Link>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">
-                    {format(new Date(reservation.bookingDate), "dd MMM yyyy", { locale: id })}
-                  </td>
+                  <td className="px-4 py-3 text-sm font-medium text-[#4f46e5]">{reservation.bookingCode}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">{reservation.customerName}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {format(new Date(reservation.checkIn), "dd MMM yyyy", { locale: id })}
@@ -211,42 +203,17 @@ export function ReservationTable() {
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {format(new Date(reservation.checkOut), "dd MMM yyyy", { locale: id })}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{reservation.orderDetails}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{reservation.gro}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{reservation.category}</td>
-                  <td className="px-4 py-3 text-sm font-medium">{formatCurrency(reservation.finalPrice)}</td>
-                  <td className="px-4 py-3 text-sm font-medium">
-                    {isAdmin ? formatCurrency(reservation.basePrice) : "********"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${
-                        reservation.status === "Selesai"
-                          ? "bg-[#dcfce7] text-[#166534]"
-                          : reservation.status === "Proses"
-                            ? "bg-[#fef9c3] text-[#854d0e]"
-                            : reservation.status === "Pending"
-                              ? "bg-[#dbeafe] text-[#1e40af]"
-                              : "bg-[#fee2e2] text-[#991b1b]"
-                      }`}
-                    >
-                      {reservation.status}
-                    </span>
-                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500 capitalize">{reservation.category}</td>
+                  <td className="px-4 py-3">{getStatusBadge(reservation.status)}</td>
+                  <td className="px-4 py-3">{getPaymentStatusBadge(reservation.paymentStatus)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{reservation.gro}</td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedReservation(reservation)
-                          setShowEditForm(true)
-                        }}
-                      >
-                        Edit
+                      <Button variant="ghost" size="sm" onClick={() => handleViewReservation(reservation)}>
+                        Detail
                       </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/calendar?id=${reservation.id}`}>Detail</Link>
+                      <Button variant="ghost" size="sm" onClick={() => handleEditReservation(reservation)}>
+                        Edit
                       </Button>
                     </div>
                   </td>
@@ -257,20 +224,23 @@ export function ReservationTable() {
         </table>
       </div>
 
-      <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
+      <Dialog open={showReservationForm} onOpenChange={setShowReservationForm}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Edit Reservasi</DialogTitle>
+            <DialogTitle>{selectedReservation ? "Edit Reservasi" : "Buat Reservasi Baru"}</DialogTitle>
           </DialogHeader>
-          <ReservationForm
-            reservation={selectedReservation}
-            onSuccess={() => {
-              setShowEditForm(false)
-              setSelectedReservation(null)
-            }}
-          />
+          <ReservationForm reservation={selectedReservation} onSuccess={handleFormSuccess} />
         </DialogContent>
       </Dialog>
-    </div>
+
+      <Dialog open={showReservationDetail} onOpenChange={setShowReservationDetail}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Detail Reservasi</DialogTitle>
+          </DialogHeader>
+          {selectedReservation && <ReservationDetail reservation={selectedReservation} onClose={handleDetailClose} />}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
