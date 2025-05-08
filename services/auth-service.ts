@@ -63,6 +63,7 @@ export function login(email: string, password: string): User | null {
 // Fungsi untuk logout
 export function logout(): void {
   deleteCookie("user")
+  window.location.href = "/login"
 }
 
 // Fungsi untuk mendapatkan user saat ini
@@ -82,4 +83,25 @@ export function getCurrentUser(): User | null {
 export function isAdmin(): boolean {
   const user = getCurrentUser()
   return user?.role === "admin"
+}
+
+// Fungsi untuk memeriksa apakah user adalah staff
+export function isStaff(): boolean {
+  const user = getCurrentUser()
+  return user?.role === "staff"
+}
+
+// Fungsi untuk memeriksa apakah user memiliki akses ke rute tertentu
+export function hasAccess(route: string): boolean {
+  const user = getCurrentUser()
+  if (!user) return false
+
+  // Admin memiliki akses ke semua rute
+  if (user.role === "admin") return true
+
+  // Rute yang dapat diakses oleh staff
+  const staffRoutes = ["/clients", "/kpi-client", "/kpi-admin"]
+
+  // Periksa apakah rute dimulai dengan salah satu rute yang diizinkan
+  return staffRoutes.some((allowedRoute) => route.startsWith(allowedRoute))
 }

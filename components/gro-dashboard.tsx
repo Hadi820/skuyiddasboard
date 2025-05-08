@@ -17,6 +17,8 @@ export function GroDashboard() {
   const [selectedGro, setSelectedGro] = useState<string | null>(null)
   const [selectedReservation, setSelectedReservation] = useState<any | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [isListOpen, setIsListOpen] = useState(false)
 
   useEffect(() => {
     const summary = getGroSummary()
@@ -50,12 +52,22 @@ export function GroDashboard() {
     return colors[index]
   }
 
+  const handleOpenReservationList = (gro: string) => {
+    setSelectedGro(gro)
+    setIsListOpen(true)
+  }
+
+  const handleOpenReservationDetail = (reservation: any) => {
+    setSelectedReservation(reservation)
+    setIsDetailOpen(true)
+  }
+
   return (
     <div className="space-y-6">
       <Tabs defaultValue="cards" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="cards">Kartu GRO</TabsTrigger>
-          <TabsTrigger value="list">Daftar GRO</TabsTrigger>
+          <TabsTrigger value="cards">Kartu Admin Staff</TabsTrigger>
+          <TabsTrigger value="list">Daftar Admin Staff</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cards">
@@ -70,7 +82,7 @@ export function GroDashboard() {
                       </Avatar>
                       <div>
                         <CardTitle className="text-lg">{gro.gro}</CardTitle>
-                        <CardDescription>Penanggung Jawab</CardDescription>
+                        <CardDescription>Admin Staff</CardDescription>
                       </div>
                     </div>
                     <Badge variant="outline">{gro.count} Reservasi</Badge>
@@ -88,7 +100,11 @@ export function GroDashboard() {
                         Rp {(gro.revenue / gro.count).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </span>
                     </div>
-                    <Button variant="outline" className="w-full mt-2" onClick={() => setSelectedGro(gro.gro)}>
+                    <Button
+                      variant="outline"
+                      className="w-full mt-2"
+                      onClick={() => handleOpenReservationList(gro.gro)}
+                    >
                       Lihat Reservasi
                     </Button>
                   </div>
@@ -101,15 +117,17 @@ export function GroDashboard() {
         <TabsContent value="list">
           <Card>
             <CardHeader>
-              <CardTitle>Daftar GRO (Penanggung Jawab)</CardTitle>
-              <CardDescription>Ringkasan kinerja semua GRO</CardDescription>
+              <CardTitle>Daftar Admin Staff</CardTitle>
+              <CardDescription>Ringkasan kinerja semua Admin Staff</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 text-left">
                     <tr>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">GRO</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Admin Staff
+                      </th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Jumlah Reservasi
                       </th>
@@ -139,7 +157,7 @@ export function GroDashboard() {
                           Rp {(gro.revenue / gro.count).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </td>
                         <td className="px-4 py-3">
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedGro(gro.gro)}>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenReservationList(gro.gro)}>
                             Lihat Reservasi
                           </Button>
                         </td>
@@ -153,35 +171,31 @@ export function GroDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* GRO Reservations Dialog */}
-      {selectedGro && (
-        <Dialog open={!!selectedGro} onOpenChange={(open) => !open && setSelectedGro(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Reservasi {selectedGro}</DialogTitle>
-            </DialogHeader>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 text-left">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Kode Booking
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Nama Pemesan
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tanggal Check-in
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Detail Pesanan
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {getGroReservations(selectedGro).map((reservation) => (
+      {/* Admin Staff Reservations Dialog */}
+      <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Reservasi {selectedGro}</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Kode Booking</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Pemesan</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tanggal Check-in
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Detail Pesanan
+                  </th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {selectedGro &&
+                  getGroReservations(selectedGro).map((reservation) => (
                     <tr key={reservation.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{reservation.bookingCode}</td>
                       <td className="px-4 py-3">{reservation.customerName}</td>
@@ -205,35 +219,37 @@ export function GroDashboard() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedReservation(reservation)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenReservationDetail(reservation)}>
                           Detail
                         </Button>
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button variant="outline" onClick={() => setIsListOpen(false)}>
+              Tutup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reservation Detail Dialog */}
-      {selectedReservation && (
-        <Dialog open={!!selectedReservation} onOpenChange={(open) => !open && setSelectedReservation(null)}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Detail Reservasi</DialogTitle>
-            </DialogHeader>
-            <ReservationDetail reservation={selectedReservation} />
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setSelectedReservation(null)}>
-                Tutup
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Detail Reservasi</DialogTitle>
+          </DialogHeader>
+          {selectedReservation && <ReservationDetail reservation={selectedReservation} />}
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+              Tutup
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

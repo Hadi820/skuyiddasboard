@@ -13,9 +13,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
 import { CalendarIcon, Plus, Trash2 } from "lucide-react"
-import { clientsData } from "@/data/clients"
-import { reservationsData } from "@/data/reservations"
 import { useToast } from "@/components/ui/use-toast"
+import { getAllClients } from "@/services/client-service"
+import { getAllReservations } from "@/services/reservation-service"
+import { addInvoice, updateInvoice } from "@/services/invoice-service"
 
 interface InvoiceFormProps {
   invoice?: any
@@ -24,6 +25,8 @@ interface InvoiceFormProps {
 
 export function InvoiceForm({ invoice, onSuccess }: InvoiceFormProps) {
   const { toast } = useToast()
+  const [clients, setClients] = useState<any[]>([])
+  const [reservations, setReservations] = useState<any[]>([])
   const [formData, setFormData] = useState({
     invoiceNumber: "",
     clientId: "",
@@ -40,6 +43,12 @@ export function InvoiceForm({ invoice, onSuccess }: InvoiceFormProps) {
     paymentMethod: "",
     paymentDate: null as Date | null,
   })
+
+  // Load clients and reservations
+  useEffect(() => {
+    setClients(getAllClients())
+    setReservations(getAllReservations())
+  }, [])
 
   useEffect(() => {
     if (invoice) {
@@ -145,16 +154,45 @@ export function InvoiceForm({ invoice, onSuccess }: InvoiceFormProps) {
       return
     }
 
-    // Here you would typically send the data to your API
-    console.log("Form data:", formData)
+    try {
+      // Get client name for the invoice
+      const client = clients.find((c) => c.id.toString() === formData.clientId)
+      const clientName = client ? client.name : ""
 
-    toast({
-      title: invoice ? "Invoice Diperbarui" : "Invoice Dibuat",
-      description: invoice ? "Invoice telah berhasil diperbarui." : "Invoice baru telah berhasil dibuat.",
-    })
+      // Prepare invoice data
+      const invoiceData = {
+        ...formData,
+        clientName,
+        issueDate: format(formData.issueDate, "yyyy-MM-dd"),
+        dueDate: format(formData.dueDate, "yyyy-MM-dd"),
+        paymentDate: formData.paymentDate ? format(formData.paymentDate, "yyyy-MM-dd") : undefined,
+      }
 
-    if (onSuccess) {
-      onSuccess()
+      // Save data using service
+      if (invoice) {
+        updateInvoice(invoice.id, invoiceData)
+        toast({
+          title: "Invoice Diperbarui",
+          description: "Invoice telah berhasil diperbarui.",
+        })
+      } else {
+        addInvoice(invoiceData)
+        toast({
+          title: "Invoice Dibuat",
+          description: "Invoice baru telah berhasil dibuat.",
+        })
+      }
+
+      if (onSuccess) {
+        onSuccess()
+      }
+    } catch (error) {
+      console.error("Error saving invoice:", error)
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat menyimpan invoice.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -179,7 +217,7 @@ export function InvoiceForm({ invoice, onSuccess }: InvoiceFormProps) {
               <SelectValue placeholder="Pilih klien" />
             </SelectTrigger>
             <SelectContent>
-              {clientsData.map((client) => (
+              {clients.map((client) => (
                 <SelectItem key={client.id} value={client.id.toString() || " "}>
                   {client.name}
                 </SelectItem>
@@ -196,14 +234,14 @@ export function InvoiceForm({ invoice, onSuccess }: InvoiceFormProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value=" ">Tidak Ada</SelectItem>
-              {reservationsData
+              {reservations
                 .filter((res) => {
-                  const client = clientsData.find((c) => c.id.toString() === formData.clientId)
-                  return client && res.person?.toLowerCase() === client.name.toLowerCase()
+                  const client = clients.find((c) => c.id.toString() === formData.clientId)
+                  return client && res.customerName?.toLowerCase() === client.name.toLowerCase()
                 })
                 .map((res) => (
                   <SelectItem key={res.id} value={res.id.toString() || " "}>
-                    {res.title} ({format(new Date(res.start), "dd MMM yyyy", { locale: id })})
+                    {res.orderDetails} ({format(new Date(res.checkIn), "dd MMM yyyy", { locale: id })})
                   </SelectItem>
                 ))}
             </SelectContent>

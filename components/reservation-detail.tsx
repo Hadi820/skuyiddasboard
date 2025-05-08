@@ -70,7 +70,7 @@ export function ReservationDetail({ reservation }: ReservationDetailProps) {
           <p className="font-medium">{reservation.phoneNumber}</p>
         </div>
         <div>
-          <p className="text-sm text-gray-500">GRO (Penanggung Jawab)</p>
+          <p className="text-sm text-gray-500">Admin Staff</p>
           <p className="font-medium">{reservation.gro}</p>
         </div>
       </div>

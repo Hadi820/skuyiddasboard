@@ -1,106 +1,45 @@
 "use client"
 
-import {
-  CalendarIcon,
-  CreditCardIcon,
-  MessageSquareIcon,
-  UserPlusIcon,
-  FileTextIcon,
-  BarChartIcon,
-  SettingsIcon,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ReservationForm } from "@/components/reservation-form"
-import { InvoiceForm } from "@/components/invoice-form"
-import { ClientForm } from "@/components/client-form"
-import { WhatsAppGenerator } from "@/components/whatsapp-generator"
-import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { PlusCircle, FileText, UserPlus, MessageSquare } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function QuickActions() {
-  const [openDialog, setOpenDialog] = useState<string | null>(null)
   const router = useRouter()
 
-  const navigateTo = (path: string) => {
-    router.push(path)
+  const handleAddReservation = () => {
+    router.push("/calendar?action=add-reservation")
+  }
+
+  const handleCreateInvoice = () => {
+    router.push("/keuangan?action=create-invoice")
+  }
+
+  const handleAddClient = () => {
+    router.push("/clients?action=add-client")
+  }
+
+  const handleCreateWhatsApp = () => {
+    router.push("/kpi-admin?action=create-whatsapp")
   }
 
   return (
-    <div className="space-y-4">
-      <Dialog open={openDialog === "reservation"} onOpenChange={(open) => setOpenDialog(open ? "reservation" : null)}>
-        <DialogTrigger asChild>
-          <Button className="w-full justify-start" variant="outline">
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            Tambah Reservasi
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Tambah Reservasi Baru</DialogTitle>
-          </DialogHeader>
-          <ReservationForm onSuccess={() => setOpenDialog(null)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === "invoice"} onOpenChange={(open) => setOpenDialog(open ? "invoice" : null)}>
-        <DialogTrigger asChild>
-          <Button className="w-full justify-start" variant="outline">
-            <CreditCardIcon className="mr-2 h-4 w-4" />
-            Buat Invoice
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Buat Invoice Baru</DialogTitle>
-          </DialogHeader>
-          <InvoiceForm onSuccess={() => setOpenDialog(null)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === "client"} onOpenChange={(open) => setOpenDialog(open ? "client" : null)}>
-        <DialogTrigger asChild>
-          <Button className="w-full justify-start" variant="outline">
-            <UserPlusIcon className="mr-2 h-4 w-4" />
-            Tambah Klien
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Tambah Klien Baru</DialogTitle>
-          </DialogHeader>
-          <ClientForm onSuccess={() => setOpenDialog(null)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={openDialog === "whatsapp"} onOpenChange={(open) => setOpenDialog(open ? "whatsapp" : null)}>
-        <DialogTrigger asChild>
-          <Button className="w-full justify-start" variant="outline">
-            <MessageSquareIcon className="mr-2 h-4 w-4" />
-            Buat Pesan WhatsApp
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Generator Pesan WhatsApp</DialogTitle>
-          </DialogHeader>
-          <WhatsAppGenerator onSuccess={() => setOpenDialog(null)} />
-        </DialogContent>
-      </Dialog>
-
-      <Button className="w-full justify-start" variant="outline" onClick={() => navigateTo("/reports")}>
-        <BarChartIcon className="mr-2 h-4 w-4" />
-        Lihat Laporan
+    <div className="grid grid-cols-1 gap-2">
+      <Button variant="outline" className="justify-start" onClick={handleAddReservation}>
+        <PlusCircle className="h-4 w-4 mr-2" />
+        Tambah Reservasi
       </Button>
-
-      <Button className="w-full justify-start" variant="outline" onClick={() => navigateTo("/keuangan")}>
-        <FileTextIcon className="mr-2 h-4 w-4" />
-        Kelola Keuangan
+      <Button variant="outline" className="justify-start" onClick={handleCreateInvoice}>
+        <FileText className="h-4 w-4 mr-2" />
+        Buat Invoice
       </Button>
-
-      <Button className="w-full justify-start" variant="outline" onClick={() => navigateTo("/settings")}>
-        <SettingsIcon className="mr-2 h-4 w-4" />
-        Pengaturan
+      <Button variant="outline" className="justify-start" onClick={handleAddClient}>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Tambah Klien
+      </Button>
+      <Button variant="outline" className="justify-start" onClick={handleCreateWhatsApp}>
+        <MessageSquare className="h-4 w-4 mr-2" />
+        Buat Pesan WhatsApp
       </Button>
     </div>
   )

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -17,47 +18,65 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { getCurrentUser } from "@/services/auth-service"
 
-const sidebarLinks = [
+// Definisi tipe untuk link sidebar
+interface SidebarLink {
+  title: string
+  href: string
+  icon: React.ElementType
+  submenu?: { title: string; href: string }[]
+  roles?: ("admin" | "staff")[] // Peran yang diizinkan untuk melihat menu ini
+}
+
+const sidebarLinks: SidebarLink[] = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+    roles: ["admin"], // Hanya admin yang dapat melihat
   },
   {
     title: "Kalender",
     href: "/calendar",
     icon: CalendarIcon,
+    roles: ["admin"], // Hanya admin yang dapat melihat
   },
   {
     title: "Klien",
     href: "/clients",
     icon: Users,
+    roles: ["admin", "staff"], // Admin dan staff dapat melihat
   },
   {
     title: "Keuangan",
     href: "/keuangan",
     icon: CreditCard,
+    roles: ["admin"], // Hanya admin yang dapat melihat
   },
   {
     title: "KPI Client",
     href: "/kpi-client",
     icon: PieChart,
+    roles: ["admin", "staff"], // Admin dan staff dapat melihat
   },
   {
     title: "KPI Admin",
     href: "/kpi-admin",
     icon: MessageSquare,
+    roles: ["admin", "staff"], // Admin dan staff dapat melihat
   },
   {
     title: "Laporan",
     href: "/reports",
     icon: BarChart3,
+    roles: ["admin"], // Hanya admin yang dapat melihat
   },
   {
     title: "Pengaturan",
     href: "/settings",
     icon: Settings,
+    roles: ["admin"], // Hanya admin yang dapat melihat
     submenu: [
       {
         title: "Umum",
@@ -78,6 +97,15 @@ const sidebarLinks = [
 export function Sidebar() {
   const pathname = usePathname()
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Mendapatkan peran pengguna saat komponen dimuat
+    const user = getCurrentUser()
+    if (user) {
+      setUserRole(user.role)
+    }
+  }, [])
 
   const toggleSubmenu = (title: string) => {
     if (activeSubmenu === title) {
@@ -92,9 +120,15 @@ export function Sidebar() {
   }
 
   const handleLogout = () => {
-    // Implement logout functionality
-    console.log("Logging out...")
+    // Implementasi logout
+    document.cookie = "user=; Max-Age=0; path=/; SameSite=Lax"
+    window.location.href = "/login"
   }
+
+  // Filter link berdasarkan peran pengguna
+  const filteredLinks = sidebarLinks.filter(
+    (link) => !link.roles || (userRole && link.roles.includes(userRole as "admin" | "staff")),
+  )
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col">
@@ -104,7 +138,7 @@ export function Sidebar() {
       </div>
       <nav className="flex-1 overflow-y-auto px-3">
         <div className="space-y-1">
-          {sidebarLinks.map((link) => (
+          {filteredLinks.map((link) => (
             <div key={link.title}>
               {link.submenu ? (
                 <>

@@ -13,10 +13,8 @@ import { NotificationList } from "@/components/notification-list"
 import { QuickActions } from "@/components/quick-actions"
 import { KpiCards } from "@/components/kpi-cards"
 import { GroDashboard } from "@/components/gro-dashboard"
-import { GroCommissionDashboard } from "@/components/gro-commission-dashboard"
-import { StorFundDashboard } from "@/components/stor-fund-dashboard"
 import { getAllReservations, loadReservationsFromLocalStorage } from "@/services/reservation-service"
-import { BarChart3, CalendarDays, CreditCard, DollarSign, Users } from "lucide-react"
+import { BarChart3, CalendarDays, CreditCard, Users } from "lucide-react"
 
 export default function DashboardPage() {
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
@@ -56,7 +54,7 @@ export default function DashboardPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-5 mb-6">
+          <TabsList className="grid grid-cols-4 mb-6">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Ringkasan</span>
@@ -65,17 +63,13 @@ export default function DashboardPage() {
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">Reservasi</span>
             </TabsTrigger>
-            <TabsTrigger value="gro" className="flex items-center gap-2">
+            <TabsTrigger value="staff" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">GRO</span>
+              <span className="hidden sm:inline">Admin Staff</span>
             </TabsTrigger>
-            <TabsTrigger value="commission" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Komisi</span>
-            </TabsTrigger>
-            <TabsTrigger value="stor" className="flex items-center gap-2">
+            <TabsTrigger value="finance" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Harga Stor</span>
+              <span className="hidden sm:inline">Keuangan</span>
             </TabsTrigger>
           </TabsList>
 
@@ -209,16 +203,54 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="gro" className="space-y-6">
+          <TabsContent value="staff" className="space-y-6">
             <GroDashboard />
           </TabsContent>
 
-          <TabsContent value="commission" className="space-y-6">
-            <GroCommissionDashboard />
-          </TabsContent>
+          <TabsContent value="finance" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Pendapatan</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total Keuntungan</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Total DP Masuk</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(totalDeposit)}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Harga Stor</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue - totalProfit)}</div>
+                </CardContent>
+              </Card>
+            </div>
 
-          <TabsContent value="stor" className="space-y-6">
-            <StorFundDashboard />
+            <Card>
+              <CardHeader>
+                <CardTitle>Daftar Invoice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RecentInvoices />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
