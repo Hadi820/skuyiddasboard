@@ -1,54 +1,50 @@
 import { reservationsData } from "@/data/reservations"
 import type { Reservation } from "@/types/reservation"
-import { saveToStorage, getFromStorage, STORAGE_KEYS } from "./storage-service"
-
-// Inisialisasi data reservasi dari localStorage atau data default
-let reservations = getFromStorage<Reservation[]>(STORAGE_KEYS.RESERVATIONS, reservationsData)
 
 // Fungsi untuk mendapatkan semua reservasi
 export function getAllReservations(): Reservation[] {
-  return reservations
+  return reservationsData
 }
 
 // Fungsi untuk mendapatkan reservasi berdasarkan ID
 export function getReservationById(id: number): Reservation | undefined {
-  return reservations.find((res) => res.id === id)
+  return reservationsData.find((res) => res.id === id)
 }
 
 // Fungsi untuk menambahkan reservasi baru
 export function addReservation(reservation: Omit<Reservation, "id">): Reservation {
-  const newId = Math.max(0, ...reservations.map((r) => r.id)) + 1
+  const newId = Math.max(0, ...reservationsData.map((r) => r.id)) + 1
   const newReservation = { ...reservation, id: newId }
-  reservations.push(newReservation)
+  reservationsData.push(newReservation)
 
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.RESERVATIONS, reservations)
+  // Simpan ke localStorage untuk persistensi data
+  saveReservationsToLocalStorage()
 
   return newReservation
 }
 
 // Fungsi untuk memperbarui reservasi yang ada
 export function updateReservation(id: number, reservation: Partial<Reservation>): Reservation | null {
-  const index = reservations.findIndex((res) => res.id === id)
+  const index = reservationsData.findIndex((res) => res.id === id)
   if (index === -1) return null
 
-  reservations[index] = { ...reservations[index], ...reservation }
+  reservationsData[index] = { ...reservationsData[index], ...reservation }
 
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.RESERVATIONS, reservations)
+  // Simpan ke localStorage untuk persistensi data
+  saveReservationsToLocalStorage()
 
-  return reservations[index]
+  return reservationsData[index]
 }
 
 // Fungsi untuk menghapus reservasi
 export function deleteReservation(id: number): boolean {
-  const index = reservations.findIndex((res) => res.id === id)
+  const index = reservationsData.findIndex((res) => res.id === id)
   if (index === -1) return false
 
-  reservations.splice(index, 1)
+  reservationsData.splice(index, 1)
 
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.RESERVATIONS, reservations)
+  // Simpan ke localStorage untuk persistensi data
+  saveReservationsToLocalStorage()
 
   return true
 }
@@ -61,7 +57,7 @@ export function getFilteredReservations(filters: {
   searchTerm?: string
   gro?: string
 }): Reservation[] {
-  return reservations.filter((reservation) => {
+  return reservationsData.filter((reservation) => {
     const matchesStatus = !filters.status || filters.status === "all" || reservation.status === filters.status
 
     const matchesCategory = !filters.category || filters.category === "all" || reservation.category === filters.category
@@ -84,14 +80,14 @@ export function getFilteredReservations(filters: {
 
 // Fungsi untuk mendapatkan reservasi berdasarkan GRO
 export function getReservationsByGro(gro: string): Reservation[] {
-  return reservations.filter((reservation) => reservation.gro === gro)
+  return reservationsData.filter((reservation) => reservation.gro === gro)
 }
 
-// Fungsi untuk mendapatkan semua GRO unik dengan jumlah reservasi dan komisi
-export function getGroSummaryWithCommission() {
+// Fungsi untuk mendapatkan semua GRO unik dengan jumlah reservasi
+export function getGroSummary() {
   const groMap = new Map<string, { count: number; revenue: number }>()
 
-  reservations.forEach((reservation) => {
+  reservationsData.forEach((reservation) => {
     if (!groMap.has(reservation.gro)) {
       groMap.set(reservation.gro, { count: 0, revenue: 0 })
     }
@@ -109,10 +105,31 @@ export function getGroSummaryWithCommission() {
   }))
 }
 
-// Fungsi untuk memuat data dari localStorage
-export function loadReservationsFromStorage(): void {
-  reservations = getFromStorage<Reservation[]>(STORAGE_KEYS.RESERVATIONS, reservationsData)
+// Fungsi untuk menyimpan data ke localStorage
+function saveReservationsToLocalStorage() {
+  try {
+    localStorage.setItem("reservationsData", JSON.stringify(reservationsData))
+  } catch (error) {
+    console.error("Error saving reservations to localStorage:", error)
+  }
 }
 
-// Inisialisasi data
-loadReservationsFromStorage()
+// Fungsi untuk memuat data dari localStorage
+export function loadReservationsFromLocalStorage() {
+  try {
+    const savedData = localStorage.getItem("reservationsData")
+    if (savedData) {
+      const parsedData = JSON.parse(savedData)
+
+      // Kosongkan array saat ini
+      reservationsData.length = 0
+
+      // Tambahkan data yang dimuat
+      parsedData.forEach((item: Reservation) => {
+        reservationsData.push(item)
+      })
+    }
+  } catch (error) {
+    console.error("Error loading reservations from localStorage:", error)
+  }
+}

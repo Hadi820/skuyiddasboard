@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
-import { addClient, updateClient } from "@/services/client-service"
 
 interface ClientFormProps {
   client?: any
@@ -60,32 +59,16 @@ export function ClientForm({ client, onSuccess }: ClientFormProps) {
       return
     }
 
-    try {
-      // Save data using service
-      if (client) {
-        updateClient(client.id, formData)
-        toast({
-          title: "Klien Diperbarui",
-          description: "Data klien telah berhasil diperbarui.",
-        })
-      } else {
-        addClient(formData)
-        toast({
-          title: "Klien Dibuat",
-          description: "Klien baru telah berhasil dibuat.",
-        })
-      }
+    // Here you would typically send the data to your API
+    console.log("Form data:", formData)
 
-      if (onSuccess) {
-        onSuccess()
-      }
-    } catch (error) {
-      console.error("Error saving client:", error)
-      toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat menyimpan data klien.",
-        variant: "destructive",
-      })
+    toast({
+      title: client ? "Klien Diperbarui" : "Klien Dibuat",
+      description: client ? "Data klien telah berhasil diperbarui." : "Klien baru telah berhasil dibuat.",
+    })
+
+    if (onSuccess) {
+      onSuccess()
     }
   }
 

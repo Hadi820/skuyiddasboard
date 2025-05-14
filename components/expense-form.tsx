@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,9 +12,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, Loader2 } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
-import { addExpense, updateExpense } from "@/services/expense-service"
+import { expenseCategories } from "@/data/expenses"
 
 interface ExpenseFormProps {
   expense?: any
@@ -23,33 +23,16 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   const { toast } = useToast()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    date: new Date(),
-    category: "operational",
-    description: "",
-    amount: "",
-    paymentMethod: "cash",
-    status: "completed",
-    notes: "",
-    attachmentUrl: "",
-    createdBy: "admin",
+    category: expense?.category || "",
+    description: expense?.description || "",
+    amount: expense?.amount || "",
+    date: expense?.date ? new Date(expense.date) : new Date(),
+    paymentMethod: expense?.paymentMethod || "transfer",
+    status: expense?.status || "pending",
+    notes: expense?.notes || "",
   })
-
-  useEffect(() => {
-    if (expense) {
-      setFormData({
-        date: new Date(expense.date) || new Date(),
-        category: expense.category || "operational",
-        description: expense.description || "",
-        amount: expense.amount?.toString() || "",
-        paymentMethod: expense.paymentMethod || "cash",
-        status: expense.status || "completed",
-        notes: expense.notes || "",
-        attachmentUrl: expense.attachmentUrl || "",
-        createdBy: expense.createdBy || "admin",
-      })
-    }
-  }, [expense])
 
   const handleChange = (field: string, value: any) => {
     setFormData((prev) => ({
@@ -58,58 +41,56 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
 
     // Validate form
-    if (!formData.description || !formData.amount) {
+    if (!formData.category || !formData.description || !formData.amount) {
       toast({
         title: "Validasi Gagal",
-        description: "Mohon lengkapi deskripsi dan jumlah pengeluaran.",
+        description: "Mohon lengkapi semua field yang diperlukan.",
         variant: "destructive",
       })
+      setIsSubmitting(false)
       return
     }
 
-    try {
-      // Prepare expense data
-      const expenseData = {
-        ...formData,
-        date: format(formData.date, "yyyy-MM-dd'T'HH:mm:ss"),
-        amount: Number.parseFloat(formData.amount),
-      }
-
-      // Save data using service
-      if (expense) {
-        updateExpense(expense.id, expenseData)
-        toast({
-          title: "Pengeluaran Diperbarui",
-          description: "Data pengeluaran telah berhasil diperbarui.",
-        })
-      } else {
-        addExpense(expenseData)
-        toast({
-          title: "Pengeluaran Dibuat",
-          description: "Pengeluaran baru telah berhasil dibuat.",
-        })
-      }
+    // Simulate API call
+    setTimeout(() => {
+      setIsSubmitting(false)
+      toast({
+        title: expense ? "Pengeluaran Diperbarui" : "Pengeluaran Ditambahkan",
+        description: expense
+          ? "Data pengeluaran telah berhasil diperbarui."
+          : "Data pengeluaran baru telah berhasil ditambahkan.",
+      })
 
       if (onSuccess) {
         onSuccess()
       }
-    } catch (error) {
-      console.error("Error saving expense:", error)
-      toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat menyimpan pengeluaran.",
-        variant: "destructive",
-      })
-    }
+    }, 1000)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="category">Kategori</Label>
+          <Select value={formData.category} onValueChange={(value) => handleChange("category", value)} required>
+            <SelectTrigger id="category">
+              <SelectValue placeholder="Pilih kategori" />
+            </SelectTrigger>
+            <SelectContent>
+              {expenseCategories.map((category) => (
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="space-y-2">
           <Label>Tanggal</Label>
           <Popover>
@@ -128,25 +109,6 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
               />
             </PopoverContent>
           </Popover>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="category">Kategori</Label>
-          <Select value={formData.category} onValueChange={(value) => handleChange("category", value)}>
-            <SelectTrigger id="category">
-              <SelectValue placeholder="Pilih kategori" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="operational">Operasional</SelectItem>
-              <SelectItem value="salary">Gaji</SelectItem>
-              <SelectItem value="marketing">Marketing</SelectItem>
-              <SelectItem value="maintenance">Pemeliharaan</SelectItem>
-              <SelectItem value="utilities">Utilitas</SelectItem>
-              <SelectItem value="rent">Sewa</SelectItem>
-              <SelectItem value="tax">Pajak</SelectItem>
-              <SelectItem value="other">Lainnya</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="space-y-2">
@@ -174,13 +136,17 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="paymentMethod">Metode Pembayaran</Label>
-          <Select value={formData.paymentMethod} onValueChange={(value) => handleChange("paymentMethod", value)}>
+          <Select
+            value={formData.paymentMethod}
+            onValueChange={(value) => handleChange("paymentMethod", value)}
+            required
+          >
             <SelectTrigger id="paymentMethod">
               <SelectValue placeholder="Pilih metode pembayaran" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="cash">Tunai</SelectItem>
               <SelectItem value="transfer">Transfer Bank</SelectItem>
+              <SelectItem value="cash">Tunai</SelectItem>
               <SelectItem value="credit_card">Kartu Kredit</SelectItem>
               <SelectItem value="debit_card">Kartu Debit</SelectItem>
               <SelectItem value="ewallet">E-Wallet</SelectItem>
@@ -190,45 +156,46 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
         <div className="space-y-2">
           <Label htmlFor="status">Status</Label>
-          <Select value={formData.status} onValueChange={(value) => handleChange("status", value)}>
+          <Select value={formData.status} onValueChange={(value) => handleChange("status", value)} required>
             <SelectTrigger id="status">
               <SelectValue placeholder="Pilih status" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="pending">Menunggu</SelectItem>
               <SelectItem value="completed">Selesai</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="cancelled">Dibatalkan</SelectItem>
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Catatan</Label>
-        <Textarea
-          id="notes"
-          value={formData.notes}
-          onChange={(e) => handleChange("notes", e.target.value)}
-          placeholder="Tambahkan catatan atau informasi tambahan di sini"
-          rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="attachmentUrl">URL Lampiran (Opsional)</Label>
-        <Input
-          id="attachmentUrl"
-          value={formData.attachmentUrl}
-          onChange={(e) => handleChange("attachmentUrl", e.target.value)}
-          placeholder="https://example.com/attachment.pdf"
-        />
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="notes">Catatan</Label>
+          <Textarea
+            id="notes"
+            value={formData.notes}
+            onChange={(e) => handleChange("notes", e.target.value)}
+            placeholder="Tambahkan catatan atau informasi tambahan"
+            rows={3}
+          />
+        </div>
       </div>
 
       <div className="flex justify-end space-x-2">
         <Button type="button" variant="outline" onClick={onSuccess}>
           Batal
         </Button>
-        <Button type="submit">{expense ? "Perbarui Pengeluaran" : "Tambah Pengeluaran"}</Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {expense ? "Menyimpan..." : "Menambahkan..."}
+            </>
+          ) : expense ? (
+            "Simpan Perubahan"
+          ) : (
+            "Tambah Pengeluaran"
+          )}
+        </Button>
       </div>
     </form>
   )
