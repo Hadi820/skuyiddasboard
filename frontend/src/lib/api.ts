@@ -174,6 +174,8 @@ export const reservationApi = {
   delete: (id: number) => apiClient.delete(`/reservations/${id}`),
   getGroSummary: () => apiClient.get("/reservations/gro/summary"),
   getByGro: (groName: string) => apiClient.get(`/reservations/gro/${groName}`),
+  getDashboardStats: () => apiClient.get("/reservations/dashboard-stats"),
+  export: (filters?: any) => apiClient.get("/reservations/export", filters),
 }
 
 export const authApi = {
@@ -181,6 +183,7 @@ export const authApi = {
   logout: () => apiClient.post("/auth/logout"),
   refresh: (refreshToken: string) => apiClient.post("/auth/refresh", { refreshToken }),
   getProfile: () => apiClient.get("/auth/profile"),
+  changePassword: (data: any) => apiClient.post("/auth/change-password", data),
 }
 
 export const clientApi = {
@@ -189,4 +192,20 @@ export const clientApi = {
   create: (data: any) => apiClient.post("/clients", data),
   update: (id: number, data: any) => apiClient.put(`/clients/${id}`, data),
   delete: (id: number) => apiClient.delete(`/clients/${id}`),
+  getReservations: (id: number) => apiClient.get(`/clients/${id}/reservations`),
+}
+
+export const invoiceApi = {
+  getAll: (filters?: any) => apiClient.get("/invoices", filters),
+  getById: (id: number) => apiClient.get(`/invoices/${id}`),
+  create: (data: any) => apiClient.post("/invoices", data),
+  update: (id: number, data: any) => apiClient.put(`/invoices/${id}`, data),
+  delete: (id: number) => apiClient.delete(`/invoices/${id}`),
+  markAsPaid: (id: number, paymentData: any) => apiClient.patch(`/invoices/${id}/mark-paid`, paymentData),
+}
+
+export const dashboardApi = {
+  getStats: () => apiClient.get("/dashboard/stats"),
+  getRevenueChart: (period?: string) => apiClient.get("/dashboard/revenue-chart", { period }),
+  getRecentActivity: () => apiClient.get("/dashboard/recent-activity"),
 }
