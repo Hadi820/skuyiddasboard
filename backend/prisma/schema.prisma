@@ -1,0 +1,275 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(STAFF)
+  status    UserStatus @default(ACTIVE)
+  avatar    String?
+  phone     String?
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  // Relations
+  createdReservations Reservation[] @relation("CreatedByUser")
+  updatedReservations Reservation[] @relation("UpdatedByUser")
+  createdClients      Client[]      @relation("CreatedByUser")
+  updatedClients      Client[]      @relation("UpdatedByUser")
+  createdInvoices     Invoice[]     @relation("CreatedByUser")
+  updatedInvoices     Invoice[]     @relation("UpdatedByUser")
+  createdExpenses     Expense[]     @relation("CreatedByUser")
+  updatedExpenses     Expense[]     @relation("UpdatedByUser")
+  activityLogs        ActivityLog[]
+
+  @@map("users")
+}
+
+model Client {
+  id                String    @id @default(cuid())
+  name              String
+  email             String?   @unique
+  phone             String?
+  address           String?
+  company           String?
+  notes             String?
+  status            ClientStatus @default(ACTIVE)
+  totalReservations Int       @default(0)
+  totalRevenue      Decimal   @default(0) @db.Decimal(15, 2)
+  lastReservation   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String?
+  updatedBy         String?
+
+  // Relations
+  reservations      Reservation[]
+  invoices          Invoice[]
+  createdByUser     User?     @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser     User?     @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
+  @@map("clients")
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  bookingCode     String            @unique
+  bookingDate     DateTime          @default(now())
+  customerName    String
+  phoneNumber     String?
+  checkIn         DateTime
+  checkOut        DateTime
+  tripSchedule    String?
+  orderDetails    String
+  gro             String?
+  category        ReservationCategory @default(AKOMODASI)
+  finalPrice      Decimal           @db.Decimal(15, 2)
+  customerDeposit Decimal           @default(0) @db.Decimal(15, 2)
+  partnerDeposit  Decimal           @default(0) @db.Decimal(15, 2)
+  basePrice       Decimal           @default(0) @db.Decimal(15, 2)
+  status          ReservationStatus @default(PENDING)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  clientId        String?
+
+  // Relations
+  client          Client?   @relation(fields: [clientId], references: [id])
+  invoices        Invoice[]
+  createdByUser   User?     @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser   User?     @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
+  @@map("reservations")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime
+  amount          Decimal       @db.Decimal(15, 2)
+  paidAmount      Decimal       @default(0) @db.Decimal(15, 2)
+  status          InvoiceStatus @default(PENDING)
+  description     String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  clientId        String?
+  reservationId   String?
+
+  // Relations
+  client          Client?       @relation(fields: [clientId], references: [id])
+  reservation     Reservation?  @relation(fields: [reservationId], references: [id])
+  createdByUser   User?         @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser   User?         @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+  payments        Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Decimal       @db.Decimal(15, 2)
+  paymentDate   DateTime      @default(now())
+  paymentMethod PaymentMethod @default(CASH)
+  reference     String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  invoiceId     String
+
+  // Relations
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Expense {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  amount      Decimal       @db.Decimal(15, 2)
+  category    ExpenseCategory @default(OPERATIONAL)
+  expenseDate DateTime      @default(now())
+  receipt     String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String?
+  updatedBy   String?
+
+  // Relations
+  createdByUser User?       @relation("CreatedByUser", fields: [createdBy], references: [id])
+  updatedByUser User?       @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+
+  @@map("expenses")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String
+  oldData   Json?
+  newData   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  userId    String
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+model GroCommission {
+  id              String   @id @default(cuid())
+  groName         String
+  month           Int
+  year            Int
+  totalReservations Int    @default(0)
+  totalRevenue    Decimal  @default(0) @db.Decimal(15, 2)
+  commissionRate  Decimal  @default(0) @db.Decimal(5, 2)
+  commissionAmount Decimal @default(0) @db.Decimal(15, 2)
+  isPaid          Boolean  @default(false)
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([groName, month, year])
+  @@map("gro_commissions")
+}
+
+model StorFund {
+  id          String   @id @default(cuid())
+  month       Int
+  year        Int
+  totalAmount Decimal  @db.Decimal(15, 2)
+  usedAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([month, year])
+  @@map("stor_funds")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  STAFF
+  GRO
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ReservationCategory {
+  AKOMODASI
+  TRANSPORTASI
+  TRIP
+  EVENT
+  MEETING
+  LAINNYA
+}
+
+enum ReservationStatus {
+  PENDING
+  PROSES
+  SELESAI
+  BATAL
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  E_WALLET
+}
+
+enum ExpenseCategory {
+  OPERATIONAL
+  MARKETING
+  MAINTENANCE
+  UTILITIES
+  SUPPLIES
+  TRAVEL
+  OTHER
+}
