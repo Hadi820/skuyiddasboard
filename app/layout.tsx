@@ -1,14 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { Providers } from "@/components/providers"
-
-const inter = Inter({ subsets: ["latin"] })
+import ClientLayout from "./clientLayout"
 
 export const metadata: Metadata = {
-  title: "Sistem Manajemen Reservasi",
-  description: "Aplikasi manajemen reservasi dan booking",
+  title: "Villa Management System",
+  description: "Sistem Manajemen Villa dan Reservasi",
     generator: 'v0.dev'
 }
 
@@ -17,11 +13,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  return (
-    <html lang="id">
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
-  )
+  return <ClientLayout>{children}</ClientLayout>
 }
+
+
+import './globals.css'

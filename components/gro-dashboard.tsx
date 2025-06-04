@@ -12,23 +12,62 @@ import { id } from "date-fns/locale"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReservationDetail } from "@/components/reservation-detail"
 
+/**
+ * GRO Dashboard Component
+ *
+ * Komponen dashboard untuk menampilkan kinerja Guest Relations Officer (GRO).
+ * Menampilkan data dalam bentuk kartu dan tabel dengan fitur detail reservasi.
+ *
+ * Features:
+ * - Tampilan kartu untuk setiap GRO dengan statistik kinerja
+ * - Tampilan tabel untuk overview semua GRO
+ * - Dialog untuk melihat daftar reservasi per GRO
+ * - Dialog untuk melihat detail reservasi individual
+ *
+ * @component
+ * @example
+ * ```tsx
+ * <GroDashboard />
+ * ```
+ */
+
+interface GroSummaryData {
+  gro: string
+  count: number
+  revenue: number
+}
+
 export function GroDashboard() {
-  const [groSummary, setGroSummary] = useState<Array<{ gro: string; count: number; revenue: number }>>([])
+  // State management
+  const [groSummary, setGroSummary] = useState<GroSummaryData[]>([])
   const [selectedGro, setSelectedGro] = useState<string | null>(null)
   const [selectedReservation, setSelectedReservation] = useState<any | null>(null)
   const [dataVersion, setDataVersion] = useState(0)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [isListOpen, setIsListOpen] = useState(false)
 
+  /**
+   * Effect untuk memuat data GRO summary saat komponen dimount atau data berubah
+   */
   useEffect(() => {
     const summary = getGroSummary()
     setGroSummary(summary)
   }, [dataVersion])
 
+  /**
+   * Mendapatkan daftar reservasi untuk GRO tertentu
+   * @param {string} gro - Nama GRO
+   * @returns {Reservation[]} Daftar reservasi
+   */
   const getGroReservations = (gro: string) => {
     return getReservationsByGro(gro)
   }
 
+  /**
+   * Menghasilkan inisial dari nama untuk avatar
+   * @param {string} name - Nama lengkap
+   * @returns {string} Inisial nama
+   */
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -37,6 +76,11 @@ export function GroDashboard() {
       .toUpperCase()
   }
 
+  /**
+   * Mendapatkan warna acak berdasarkan nama untuk konsistensi visual
+   * @param {string} name - Nama untuk generate warna
+   * @returns {string} CSS class untuk background color
+   */
   const getRandomColor = (name: string) => {
     const colors = [
       "bg-red-500",
@@ -52,24 +96,58 @@ export function GroDashboard() {
     return colors[index]
   }
 
+  /**
+   * Handler untuk membuka dialog daftar reservasi GRO
+   * @param {string} gro - Nama GRO yang dipilih
+   */
   const handleOpenReservationList = (gro: string) => {
     setSelectedGro(gro)
     setIsListOpen(true)
   }
 
+  /**
+   * Handler untuk membuka dialog detail reservasi
+   * @param {any} reservation - Data reservasi yang dipilih
+   */
   const handleOpenReservationDetail = (reservation: any) => {
     setSelectedReservation(reservation)
     setIsDetailOpen(true)
   }
 
+  /**
+   * Mendapatkan CSS class untuk status badge berdasarkan status reservasi
+   * @param {string} status - Status reservasi
+   * @returns {string} CSS classes untuk styling badge
+   */
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "Selesai":
+        return "bg-[#dcfce7] text-[#166534]"
+      case "Proses":
+        return "bg-[#fef9c3] text-[#854d0e]"
+      case "Pending":
+        return "bg-[#dbeafe] text-[#1e40af]"
+      default:
+        return "bg-[#fee2e2] text-[#991b1b]"
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold">Dashboard Admin Staff</h1>
+        <p className="text-gray-600">Pantau kinerja dan statistik semua Admin Staff dalam mengelola reservasi hotel</p>
+      </div>
+
+      {/* Main Content Tabs */}
       <Tabs defaultValue="cards" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="cards">Kartu Admin Staff</TabsTrigger>
           <TabsTrigger value="list">Daftar Admin Staff</TabsTrigger>
         </TabsList>
 
+        {/* Cards View */}
         <TabsContent value="cards">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {groSummary.map((gro) => (
@@ -114,6 +192,7 @@ export function GroDashboard() {
           </div>
         </TabsContent>
 
+        {/* Table View */}
         <TabsContent value="list">
           <Card>
             <CardHeader>
@@ -171,7 +250,7 @@ export function GroDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Admin Staff Reservations Dialog */}
+      {/* Dialog: Daftar Reservasi Admin Staff */}
       <Dialog open={isListOpen} onOpenChange={setIsListOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -205,15 +284,7 @@ export function GroDashboard() {
                       <td className="px-4 py-3">{reservation.orderDetails}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${
-                            reservation.status === "Selesai"
-                              ? "bg-[#dcfce7] text-[#166534]"
-                              : reservation.status === "Proses"
-                                ? "bg-[#fef9c3] text-[#854d0e]"
-                                : reservation.status === "Pending"
-                                  ? "bg-[#dbeafe] text-[#1e40af]"
-                                  : "bg-[#fee2e2] text-[#991b1b]"
-                          }`}
+                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${getStatusBadgeClass(reservation.status)}`}
                         >
                           {reservation.status}
                         </span>
@@ -236,7 +307,7 @@ export function GroDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Reservation Detail Dialog */}
+      {/* Dialog: Detail Reservasi */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
