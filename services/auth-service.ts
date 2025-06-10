@@ -1,97 +1,130 @@
-// Tipe data untuk user
+/**
+ * Legacy Authentication Service (Updated for Security)
+ * Maintains backward compatibility while improving security
+ */
+
 export interface User {
   id: string
-  email: string
   name: string
-  role: "admin" | "staff"
+  email: string
+  role: "admin" | "manager" | "staff" | "gro"
+  avatar?: string
 }
 
-// Data pengguna dummy
-const users = [
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+// Hardcoded storage keys for security
+const STORAGE_KEYS = {
+  TOKEN: "hotel_auth_token",
+  REFRESH_TOKEN: "hotel_refresh_token",
+  USER: "hotel_user_data",
+} as const
+
+// Mock users for development (in production, this would come from API)
+const mockUsers: User[] = [
   {
     id: "1",
-    email: "admin@villamanagement.com",
-    password: "admin123",
-    name: "Administrator",
-    role: "admin" as const,
+    name: "Admin User",
+    email: "admin@hotel.com",
+    role: "admin",
+    avatar: "/placeholder.svg?height=32&width=32",
   },
   {
     id: "2",
-    email: "staff@villamanagement.com",
-    password: "staff123",
-    name: "Staff",
-    role: "staff" as const,
+    name: "Manager User",
+    email: "manager@hotel.com",
+    role: "manager",
+    avatar: "/placeholder.svg?height=32&width=32",
+  },
+  {
+    id: "3",
+    name: "Staff User",
+    email: "staff@hotel.com",
+    role: "staff",
+    avatar: "/placeholder.svg?height=32&width=32",
+  },
+  {
+    id: "4",
+    name: "GRO User",
+    email: "gro@hotel.com",
+    role: "gro",
+    avatar: "/placeholder.svg?height=32&width=32",
   },
 ]
 
-// Fungsi untuk menyimpan cookie
-function setCookie(name: string, value: string, days = 7) {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString()
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
+export function login(credentials: LoginCredentials): Promise<User> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      const user = mockUsers.find((u) => u.email === credentials.email)
+
+      if (user && credentials.password === "password") {
+        // Store user data and token
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
+        localStorage.setItem(STORAGE_KEYS.TOKEN, "mock-jwt-token")
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, "mock-refresh-token")
+
+        resolve(user)
+      } else {
+        reject(new Error("Invalid credentials"))
+      }
+    }, 1000)
+  })
 }
 
-// Fungsi untuk mendapatkan cookie
-function getCookie(name: string): string | null {
-  const value = `; ${document.cookie}`
-  const parts = value.split(`; ${name}=`)
-  if (parts.length === 2) {
-    return decodeURIComponent(parts.pop()?.split(";").shift() || "")
-  }
-  return null
-}
-
-// Fungsi untuk menghapus cookie
-function deleteCookie(name: string) {
-  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`
-}
-
-// Fungsi untuk login
-export function login(email: string, password: string): User | null {
-  const user = users.find((u) => u.email === email && u.password === password)
-
-  if (!user) return null
-
-  // Jangan sertakan password dalam data yang dikembalikan
-  const { password: _, ...userWithoutPassword } = user
-
-  // Simpan user ke cookie
-  setCookie("user", JSON.stringify(userWithoutPassword))
-
-  return userWithoutPassword
-}
-
-// Fungsi untuk logout
 export function logout(): void {
-  deleteCookie("user")
-  window.location.href = "/login"
+  localStorage.removeItem(STORAGE_KEYS.USER)
+  localStorage.removeItem(STORAGE_KEYS.TOKEN)
+  localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
 }
 
-// Fungsi untuk mendapatkan user saat ini
 export function getCurrentUser(): User | null {
-  const userJson = getCookie("user")
-  if (!userJson) return null
+  if (typeof window === "undefined") return null
 
   try {
-    return JSON.parse(userJson) as User
+    const userStr = localStorage.getItem(STORAGE_KEYS.USER)
+    return userStr ? JSON.parse(userStr) : null
   } catch (error) {
-    console.error("Error parsing user data:", error)
+    console.error("Error getting current user:", error)
     return null
   }
 }
 
-// Fungsi untuk memeriksa apakah user adalah admin
+export function isAuthenticated(): boolean {
+  if (typeof window === "undefined") return false
+
+  const token = localStorage.getItem(STORAGE_KEYS.TOKEN)
+  const user = getCurrentUser()
+  return !!(token && user)
+}
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(STORAGE_KEYS.TOKEN)
+}
+
 export function isAdmin(): boolean {
   const user = getCurrentUser()
   return user?.role === "admin"
 }
 
-// Fungsi untuk memeriksa apakah user adalah staff
+export function isManager(): boolean {
+  const user = getCurrentUser()
+  return user?.role === "manager"
+}
+
 export function isStaff(): boolean {
   const user = getCurrentUser()
   return user?.role === "staff"
 }
 
-// Fungsi untuk memeriksa apakah user memiliki akses ke rute tertentu
+export function isGro(): boolean {
+  const user = getCurrentUser()
+  return user?.role === "gro"
+}
+
 export function hasAccess(route: string): boolean {
   const user = getCurrentUser()
   if (!user) return false
@@ -99,9 +132,46 @@ export function hasAccess(route: string): boolean {
   // Admin memiliki akses ke semua rute
   if (user.role === "admin") return true
 
-  // Rute yang dapat diakses oleh staff
-  const staffRoutes = ["/clients", "/kpi-client", "/kpi-admin"]
+  // Manager memiliki akses ke sebagian besar rute
+  if (user.role === "manager") {
+    const managerRoutes = ["/dashboard", "/clients", "/kpi-admin", "/kpi-client", "/keuangan", "/calendar", "/reports"]
+    return managerRoutes.some((allowedRoute) => route.startsWith(allowedRoute))
+  }
 
-  // Periksa apakah rute dimulai dengan salah satu rute yang diizinkan
-  return staffRoutes.some((allowedRoute) => route.startsWith(allowedRoute))
+  // Staff memiliki akses terbatas
+  if (user.role === "staff") {
+    const staffRoutes = ["/clients", "/kpi-client", "/calendar"]
+    return staffRoutes.some((allowedRoute) => route.startsWith(allowedRoute))
+  }
+
+  // GRO memiliki akses ke dashboard dan client
+  if (user.role === "gro") {
+    const groRoutes = ["/dashboard", "/clients", "/kpi-client"]
+    return groRoutes.some((allowedRoute) => route.startsWith(allowedRoute))
+  }
+
+  return false
+}
+
+export function getUserRole(): string | null {
+  const user = getCurrentUser()
+  return user?.role || null
+}
+
+export function getUserPermissions(): string[] {
+  const user = getCurrentUser()
+  if (!user) return []
+
+  switch (user.role) {
+    case "admin":
+      return ["read", "write", "delete", "manage_users", "manage_settings", "view_reports", "manage_finances"]
+    case "manager":
+      return ["read", "write", "view_reports", "manage_finances"]
+    case "staff":
+      return ["read", "write"]
+    case "gro":
+      return ["read", "write", "manage_clients"]
+    default:
+      return ["read"]
+  }
 }

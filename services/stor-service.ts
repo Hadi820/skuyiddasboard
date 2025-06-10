@@ -11,42 +11,9 @@ export interface StorTransaction {
 }
 
 // Data transaksi Harga Stor default
-const defaultStorTransactions: StorTransaction[] = [
-  {
-    id: "STOR-001",
-    amount: 5000000,
-    type: "deposit",
-    description: "Setoran awal bulan",
-    date: "2023-05-01T08:00:00Z",
-    createdBy: "admin",
-  },
-  {
-    id: "STOR-002",
-    amount: 1500000,
-    type: "withdrawal",
-    description: "Penarikan untuk biaya operasional",
-    date: "2023-05-10T14:30:00Z",
-    createdBy: "admin",
-  },
-  {
-    id: "STOR-003",
-    amount: 3000000,
-    type: "deposit",
-    description: "Setoran tambahan",
-    date: "2023-05-15T09:45:00Z",
-    createdBy: "admin",
-  },
-  {
-    id: "STOR-004",
-    amount: 2000000,
-    type: "withdrawal",
-    description: "Penarikan untuk pembayaran vendor",
-    date: "2023-05-20T16:15:00Z",
-    createdBy: "admin",
-  },
-]
+const defaultStorTransactions: StorTransaction[] = []
 
-// Inisialisasi data transaksi Harga Stor dari localStorage atau data default
+// Inisialisasi data transaksi Harga Stor dari localStorage (kosong secara default)
 let storTransactions = getFromStorage<StorTransaction[]>(STORAGE_KEYS.STOR_TRANSACTIONS, defaultStorTransactions)
 
 // Fungsi untuk mendapatkan saldo Harga Stor

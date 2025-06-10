@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hotel_postgres_prod
+    restart: always
+    environment:
+      POSTGRES_DB: hotel_management
+      POSTGRES_USER: hotel_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotel_user -d hotel_management"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - hotel_network_prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: hotel_redis_prod
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - hotel_network_prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backend:
+    image: ${DOCKER_REGISTRY:-localhost}/hotel-backend:${VERSION:-latest}
+    container_name: hotel_backend_prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://hotel_user:${POSTGRES_PASSWORD}@postgres:5432/hotel_management
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      FRONTEND_URL: ${FRONTEND_URL}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data_prod:/app/uploads
+      - logs_data_prod:/app/logs
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-2}
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - hotel_network_prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-localhost}/hotel-frontend:${VERSION:-latest}
+    container_name: hotel_frontend_prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    deploy:
+      replicas: ${FRONTEND_REPLICAS:-2}
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - hotel_network_prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: hotel_nginx_prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./nginx/logs:/var/log/nginx
+      - uploads_data_prod:/var/www/uploads
+    depends_on:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    networks:
+      - hotel_network_prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  hotel_network_prod:
+    driver: bridge
+
+volumes:
+  postgres_data_prod:
+  redis_data_prod:
+  uploads_data_prod:
+  logs_data_prod:

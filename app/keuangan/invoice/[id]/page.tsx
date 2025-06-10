@@ -14,6 +14,8 @@ import { invoicesData } from "@/data/invoices"
 import { clientsData } from "@/data/clients"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+// Tambahkan import untuk PDF generator
+import { downloadInvoicePDF } from "@/utils/pdf-generator"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
@@ -55,11 +57,16 @@ export default function InvoiceDetailPage() {
     window.print()
   }
 
+  // Ubah fungsi handleDownloadInvoice
   const handleDownloadInvoice = () => {
-    toast({
-      title: "Invoice Diunduh",
-      description: "Invoice telah berhasil diunduh sebagai PDF.",
-    })
+    if (invoice && client) {
+      downloadInvoicePDF(invoice, client.name)
+
+      toast({
+        title: "Invoice Diunduh",
+        description: "Invoice telah berhasil diunduh sebagai PDF.",
+      })
+    }
   }
 
   if (isLoading) {

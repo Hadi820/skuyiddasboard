@@ -1,4 +1,4 @@
-# Frontend Dockerfile for Hotel Management System
+# Frontend Dockerfile
 FROM node:18-alpine AS base
 
 # Install dependencies only when needed
@@ -6,64 +6,56 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies based on the preferred package manager
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then yarn global add pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
 
-# Development stage
-FROM base AS development
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Expose port
-EXPOSE 3000
-
-# Start development server
-CMD ["npm", "run", "dev"]
-
-# Build stage
+# Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-RUN npm ci
-
-# Copy source code
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build application
+# Build arguments
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_TELEMETRY_DISABLED 1
+
 RUN npm run build
 
-# Production stage
-FROM base AS production
+# Production image, copy all the files and run next
+FROM base AS runner
 WORKDIR /app
 
-# Create non-root user
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
 COPY --from=builder /app/public ./public
+
+# Set the correct permission for prerender cache
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+# Automatically leverage output traces to reduce image size
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/api/health || exit 1
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
 
-# Start production server
 CMD ["node", "server.js"]

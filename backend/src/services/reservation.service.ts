@@ -155,41 +155,52 @@ export class ReservationService {
   }
 
   /**
-   * Create new reservation
+   * Create new reservation with transaction
    */
   async createReservation(data: Prisma.ReservationCreateInput) {
     try {
-      // Generate booking code if not provided
-      if (!data.bookingCode) {
-        data.bookingCode = await this.generateBookingCode()
-      }
+      return await prisma.$transaction(async (tx) => {
+        // Generate booking code if not provided
+        if (!data.bookingCode) {
+          data.bookingCode = await this.generateBookingCode(tx)
+        }
 
-      const reservation = await prisma.reservation.create({
-        data,
-        include: {
-          client: true,
-          createdByUser: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        // Create reservation
+        const reservation = await tx.reservation.create({
+          data,
+          include: {
+            client: true,
+            createdByUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
+        })
+
+        // Update client statistics if clientId is provided
+        if (reservation.clientId) {
+          await this.updateClientStats(reservation.clientId, tx)
+        }
+
+        // Log activity
+        if (data.createdBy) {
+          await tx.activityLog.create({
+            data: {
+              action: "CREATE",
+              entity: "RESERVATION",
+              entityId: reservation.id,
+              newData: reservation,
+              userId: data.createdBy,
+            },
+          })
+        }
+
+        logger.info(`Reservation created: ${reservation.bookingCode}`)
+        return reservation
       })
-
-      // Update client statistics if clientId is provided
-      if (reservation.clientId) {
-        await this.updateClientStats(reservation.clientId)
-      }
-
-      // Log activity
-      if (data.createdBy) {
-        await this.logActivity("CREATE", "RESERVATION", reservation.id, null, reservation, data.createdBy)
-      }
-
-      logger.info(`Reservation created: ${reservation.bookingCode}`)
-      return reservation
     } catch (error) {
       logger.error("Error creating reservation:", error)
       throw new Error(`Failed to create reservation: ${error}`)
@@ -197,49 +208,60 @@ export class ReservationService {
   }
 
   /**
-   * Update reservation
+   * Update reservation with transaction
    */
   async updateReservation(id: string, data: Prisma.ReservationUpdateInput) {
     try {
-      const oldReservation = await prisma.reservation.findUnique({ where: { id } })
+      return await prisma.$transaction(async (tx) => {
+        const oldReservation = await tx.reservation.findUnique({ where: { id } })
 
-      const updatedReservation = await prisma.reservation.update({
-        where: { id },
-        data: {
-          ...data,
-          updatedAt: new Date(),
-        },
-        include: {
-          client: true,
-          createdByUser: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        const updatedReservation = await tx.reservation.update({
+          where: { id },
+          data: {
+            ...data,
+            updatedAt: new Date(),
+          },
+          include: {
+            client: true,
+            createdByUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            updatedByUser: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-          updatedByUser: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        })
+
+        // Update client statistics if clientId exists
+        if (updatedReservation.clientId) {
+          await this.updateClientStats(updatedReservation.clientId, tx)
+        }
+
+        // Log activity
+        if (data.updatedBy && typeof data.updatedBy === "string") {
+          await tx.activityLog.create({
+            data: {
+              action: "UPDATE",
+              entity: "RESERVATION",
+              entityId: id,
+              oldData: oldReservation,
+              newData: updatedReservation,
+              userId: data.updatedBy,
             },
-          },
-        },
+          })
+        }
+
+        logger.info(`Reservation updated: ${updatedReservation.bookingCode}`)
+        return updatedReservation
       })
-
-      // Update client statistics if clientId exists
-      if (updatedReservation.clientId) {
-        await this.updateClientStats(updatedReservation.clientId)
-      }
-
-      // Log activity
-      if (data.updatedBy && typeof data.updatedBy === "string") {
-        await this.logActivity("UPDATE", "RESERVATION", id, oldReservation, updatedReservation, data.updatedBy)
-      }
-
-      logger.info(`Reservation updated: ${updatedReservation.bookingCode}`)
-      return updatedReservation
     } catch (error) {
       logger.error("Error updating reservation:", error)
       throw new Error(`Failed to update reservation: ${error}`)
@@ -247,29 +269,39 @@ export class ReservationService {
   }
 
   /**
-   * Delete reservation
+   * Delete reservation with transaction
    */
   async deleteReservation(id: string, deletedBy: string) {
     try {
-      const reservation = await prisma.reservation.findUnique({ where: { id } })
-      if (!reservation) {
-        return false
-      }
+      return await prisma.$transaction(async (tx) => {
+        const reservation = await tx.reservation.findUnique({ where: { id } })
+        if (!reservation) {
+          return false
+        }
 
-      const clientId = reservation.clientId
+        const clientId = reservation.clientId
 
-      await prisma.reservation.delete({ where: { id } })
+        await tx.reservation.delete({ where: { id } })
 
-      // Update client statistics if clientId exists
-      if (clientId) {
-        await this.updateClientStats(clientId)
-      }
+        // Update client statistics if clientId exists
+        if (clientId) {
+          await this.updateClientStats(clientId, tx)
+        }
 
-      // Log activity
-      await this.logActivity("DELETE", "RESERVATION", id, reservation, null, deletedBy)
+        // Log activity
+        await tx.activityLog.create({
+          data: {
+            action: "DELETE",
+            entity: "RESERVATION",
+            entityId: id,
+            oldData: reservation,
+            userId: deletedBy,
+          },
+        })
 
-      logger.info(`Reservation deleted: ${reservation.bookingCode}`)
-      return true
+        logger.info(`Reservation deleted: ${reservation.bookingCode}`)
+        return true
+      })
     } catch (error) {
       logger.error("Error deleting reservation:", error)
       throw new Error(`Failed to delete reservation: ${error}`)
@@ -371,9 +403,9 @@ export class ReservationService {
   }
 
   /**
-   * Generate unique booking code
+   * Generate unique booking code with transaction support
    */
-  private async generateBookingCode(): Promise<string> {
+  private async generateBookingCode(tx?: any): Promise<string> {
     const prefix = "BK"
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, "")
 
@@ -383,7 +415,8 @@ export class ReservationService {
     const endOfDay = new Date()
     endOfDay.setHours(23, 59, 59, 999)
 
-    const todayCount = await prisma.reservation.count({
+    const client = tx || prisma
+    const todayCount = await client.reservation.count({
       where: {
         createdAt: {
           gte: startOfDay,
@@ -397,18 +430,19 @@ export class ReservationService {
   }
 
   /**
-   * Update client statistics
+   * Update client statistics with transaction support
    */
-  private async updateClientStats(clientId: string): Promise<void> {
+  private async updateClientStats(clientId: string, tx?: any): Promise<void> {
     try {
-      const stats = await prisma.reservation.aggregate({
+      const client = tx || prisma
+      const stats = await client.reservation.aggregate({
         where: { clientId },
         _count: { id: true },
         _sum: { finalPrice: true },
         _max: { createdAt: true },
       })
 
-      await prisma.client.update({
+      await client.client.update({
         where: { id: clientId },
         data: {
           totalReservations: stats._count.id,

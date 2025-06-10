@@ -98,27 +98,6 @@ export function updateCommissionStatus(id: string, status: "pending" | "paid" | 
 
 // Fungsi untuk menginisialisasi data komisi dari reservasi yang ada
 export function initializeCommissionData() {
-  if (commissionHistoryData.length > 0) return // Sudah diinisialisasi
-
-  reservationsData.forEach((reservation) => {
-    if (!reservation.gro) return
-
-    // Cek apakah sudah ada riwayat komisi untuk reservasi ini
-    const existingCommission = commissionHistoryData.find((com) => com.reservationId === reservation.id)
-    if (existingCommission) return
-
-    // Tambahkan riwayat komisi baru
-    addCommissionHistory({
-      gro: reservation.gro,
-      reservationId: reservation.id,
-      bookingCode: reservation.bookingCode,
-      customerName: reservation.customerName,
-      amount: GRO_COMMISSION_PER_RESERVATION,
-      date: new Date().toISOString(),
-      status: reservation.status === "Selesai" ? "paid" : "pending",
-    })
-  })
+  // Data will be initialized when reservations are added
+  return
 }
-
-// Inisialisasi data komisi
-initializeCommissionData()

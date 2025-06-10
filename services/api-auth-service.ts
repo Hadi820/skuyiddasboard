@@ -25,9 +25,10 @@ export interface AuthResponse {
 }
 
 export class ApiAuthService {
-  private static readonly TOKEN_KEY = "accessToken"
-  private static readonly REFRESH_TOKEN_KEY = "refreshToken"
-  private static readonly USER_KEY = "user"
+  // Hardcoded storage keys for security (not exposed as env vars)
+  private static readonly TOKEN_KEY = "hotel_auth_token"
+  private static readonly REFRESH_TOKEN_KEY = "hotel_refresh_token"
+  private static readonly USER_KEY = "hotel_user_data"
 
   /**
    * Login user

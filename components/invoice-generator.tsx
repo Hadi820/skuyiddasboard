@@ -11,6 +11,8 @@ import { useToast } from "@/components/ui/use-toast"
 import type { Reservation } from "@/data/reservations"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
+// Tambahkan import untuk PDF generator
+import { downloadInvoicePDF } from "@/utils/pdf-generator"
 
 interface InvoiceGeneratorProps {
   reservation: Reservation
@@ -74,7 +76,7 @@ export function InvoiceGenerator({ reservation, onSuccess }: InvoiceGeneratorPro
       content += `*Sisa Pembayaran: ${formatCurrency(reservation.remainingPayment)}*\n\n`
     } else if (invoiceType === "dp") {
       content += `*DP: ${formatCurrency(reservation.customerDeposit)}*\n`
-      content += `Sisa Pembayaran: ${formatCurrency(reservation.remainingPayment)}\n\n`
+      content += `Sisa Pembayaran: ${formatCurrency(reservation.remainingPayment)}*\n\n`
     } else {
       content += `*Jumlah Terbayar: ${formatCurrency(reservation.finalPrice)}*\n\n`
     }
@@ -150,11 +152,56 @@ export function InvoiceGenerator({ reservation, onSuccess }: InvoiceGeneratorPro
     }
   }
 
+  // Ubah fungsi downloadPDF
   const downloadPDF = () => {
-    // In a real app, you would generate a PDF and download it
+    // Generate dummy invoice object dari data reservasi
+    const invoiceData = {
+      id: invoiceNumber,
+      invoiceNumber: invoiceNumber,
+      clientId: reservation.customerId || "client-1",
+      clientName: reservation.customerName,
+      reservationId: reservation.id,
+      issueDate: new Date().toISOString(),
+      dueDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
+      subtotal: reservation.finalPrice,
+      tax: 0,
+      discount: 0,
+      total:
+        invoiceType === "dp"
+          ? reservation.customerDeposit
+          : invoiceType === "tagihan"
+            ? reservation.remainingPayment
+            : reservation.finalPrice,
+      notes: includeCustomMessage ? customMessage : "",
+      status: invoiceType === "lunas" ? "paid" : "sent",
+      paymentMethod: invoiceType === "lunas" ? "transfer" : undefined,
+      paymentDate: invoiceType === "lunas" ? new Date().toISOString() : undefined,
+      items: [
+        {
+          description: `${reservation.orderDetails} (${format(new Date(reservation.checkIn), "dd MMM yyyy", { locale: id })} - ${format(new Date(reservation.checkOut), "dd MMM yyyy", { locale: id })})`,
+          quantity: 1,
+          unitPrice:
+            invoiceType === "dp"
+              ? reservation.customerDeposit.toString()
+              : invoiceType === "tagihan"
+                ? reservation.remainingPayment.toString()
+                : reservation.finalPrice.toString(),
+          amount:
+            invoiceType === "dp"
+              ? reservation.customerDeposit.toString()
+              : invoiceType === "tagihan"
+                ? reservation.remainingPayment.toString()
+                : reservation.finalPrice.toString(),
+        },
+      ],
+    }
+
+    // Download PDF
+    downloadInvoicePDF(invoiceData, reservation.customerName)
+
     toast({
-      title: "Fitur dalam pengembangan",
-      description: "Fitur download PDF akan segera tersedia.",
+      title: "Invoice diunduh",
+      description: "Invoice telah berhasil diunduh sebagai PDF.",
     })
   }
 
