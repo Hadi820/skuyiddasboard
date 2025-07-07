@@ -1,49 +1,30 @@
 "use client"
 
 import type React from "react"
-
 import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/components/auth-provider"
-import { useEffect } from "react"
-import { loadClientsFromStorage } from "@/services/client-service"
-import { loadReservationsFromStorage } from "@/services/reservation-service"
-import { loadInvoicesFromStorage } from "@/services/invoice-service"
-import { loadExpensesFromStorage } from "@/services/expense-service"
-import { loadStorTransactionsFromStorage } from "@/services/stor-service"
+import { Providers } from "@/components/providers"
+import { Sidebar } from "@/components/sidebar"
+import "./globals.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
-function InitializeApp() {
-  useEffect(() => {
-    // Load data from localStorage on app initialization
-    loadClientsFromStorage()
-    loadReservationsFromStorage()
-    loadInvoicesFromStorage()
-    loadExpensesFromStorage()
-    loadStorTransactionsFromStorage()
-  }, [])
-
-  return null
-}
-
 export default function ClientLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <AuthProvider>
-            <InitializeApp />
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+    <html lang="en" className={inter.className}>
+      <body className="min-h-screen bg-background">
+        <AuthProvider>
+          <Providers>
+            <div className="flex h-screen">
+              <Sidebar />
+              <main className="flex-1 overflow-auto">{children}</main>
+            </div>
+          </Providers>
+        </AuthProvider>
       </body>
     </html>
   )

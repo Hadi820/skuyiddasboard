@@ -1,72 +1,62 @@
 "use client"
 
 import type React from "react"
-
 import { createContext, useContext, useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { getCurrentUser, logout as logoutService } from "@/services/auth-service"
-import type { User } from "@/services/auth-service"
+import { type User, getCurrentUser, isAuthenticated } from "@/services/auth-service"
 
 interface AuthContextType {
-  isAuthenticated: boolean
-  isAdmin: boolean
   user: User | null
+  isLoading: boolean
+  login: (user: User) => void
   logout: () => void
+  isAuthenticated: boolean
 }
 
-const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
-  isAdmin: false,
-  user: null,
-  logout: () => {},
-})
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const router = useRouter()
-  const pathname = usePathname()
 
   useEffect(() => {
-    // Periksa apakah user sudah login
     const checkAuth = () => {
-      const currentUser = getCurrentUser()
-      setUser(currentUser)
-      setIsLoading(false)
-
-      // Redirect ke login jika tidak terotentikasi dan tidak berada di halaman login
-      if (!currentUser && pathname !== "/login") {
-        router.push("/login")
+      if (isAuthenticated()) {
+        const currentUser = getCurrentUser()
+        setUser(currentUser)
       }
+      setIsLoading(false)
     }
 
     checkAuth()
+  }, [])
 
-    // Tambahkan event listener untuk perubahan cookie
-    const handleStorageChange = () => {
-      checkAuth()
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [pathname, router])
+  const login = (userData: User) => {
+    setUser(userData)
+  }
 
   const logout = () => {
-    logoutService()
     setUser(null)
-    router.push("/login")
   }
 
-  const value = {
-    isAuthenticated: !!user,
-    isAdmin: user?.role === "admin",
-    user,
-    logout,
-  }
-
-  return <AuthContext.Provider value={value}>{!isLoading && children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        logout,
+        isAuthenticated: !!user,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}

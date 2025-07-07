@@ -25,7 +25,7 @@ services:
     image: redis:7-alpine
     container_name: hotel_redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-hotel_redis_password}
+    command: redis-server --requirepass hotel_redis_password
     volumes:
       - redis_data:/data
     ports:
@@ -38,62 +38,6 @@ services:
     networks:
       - hotel_network
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: hotel_backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      PORT: 3001
-      DATABASE_URL: postgresql://hotel_user:hotel_password@postgres:5432/hotel_management
-      REDIS_URL: redis://:${REDIS_PASSWORD:-hotel_redis_password}@redis:6379
-      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_min_32_chars}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_jwt_refresh_secret_key_min_32_chars}
-      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      UPLOAD_DIR: /app/uploads
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-      - uploads_data:/app/uploads
-    ports:
-      - "3001:3001"
-    networks:
-      - hotel_network
-    command: npm run dev
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: hotel_frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    ports:
-      - "3000:3000"
-    networks:
-      - hotel_network
-    command: npm run dev
-
 networks:
   hotel_network:
     driver: bridge
@@ -101,4 +45,3 @@ networks:
 volumes:
   postgres_data:
   redis_data:
-  uploads_data:

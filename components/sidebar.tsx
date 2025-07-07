@@ -20,13 +20,12 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { getCurrentUser } from "@/services/auth-service"
 
-// Definisi tipe untuk link sidebar
 interface SidebarLink {
   title: string
   href: string
   icon: React.ElementType
   submenu?: { title: string; href: string }[]
-  roles?: ("admin" | "staff")[] // Peran yang diizinkan untuk melihat menu ini
+  roles?: ("admin" | "staff")[]
 }
 
 const sidebarLinks: SidebarLink[] = [
@@ -34,49 +33,49 @@ const sidebarLinks: SidebarLink[] = [
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["admin"], // Hanya admin yang dapat melihat
+    roles: ["admin"],
   },
   {
     title: "Kalender",
     href: "/calendar",
     icon: CalendarIcon,
-    roles: ["admin"], // Hanya admin yang dapat melihat
+    roles: ["admin"],
   },
   {
     title: "Klien",
     href: "/clients",
     icon: Users,
-    roles: ["admin", "staff"], // Admin dan staff dapat melihat
+    roles: ["admin", "staff"],
   },
   {
     title: "Keuangan",
     href: "/keuangan",
     icon: CreditCard,
-    roles: ["admin"], // Hanya admin yang dapat melihat
+    roles: ["admin"],
   },
   {
     title: "KPI Client",
     href: "/kpi-client",
     icon: PieChart,
-    roles: ["admin", "staff"], // Admin dan staff dapat melihat
+    roles: ["admin", "staff"],
   },
   {
     title: "KPI Admin",
     href: "/kpi-admin",
     icon: MessageSquare,
-    roles: ["admin", "staff"], // Admin dan staff dapat melihat
+    roles: ["admin", "staff"],
   },
   {
     title: "Laporan",
     href: "/reports",
     icon: BarChart3,
-    roles: ["admin"], // Hanya admin yang dapat melihat
+    roles: ["admin"],
   },
   {
     title: "Pengaturan",
     href: "/settings",
     icon: Settings,
-    roles: ["admin"], // Hanya admin yang dapat melihat
+    roles: ["admin"],
     submenu: [
       {
         title: "Umum",
@@ -100,7 +99,6 @@ export function Sidebar() {
   const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
-    // Mendapatkan peran pengguna saat komponen dimuat
     const user = getCurrentUser()
     if (user) {
       setUserRole(user.role)
@@ -120,12 +118,10 @@ export function Sidebar() {
   }
 
   const handleLogout = () => {
-    // Implementasi logout
     document.cookie = "user=; Max-Age=0; path=/; SameSite=Lax"
     window.location.href = "/login"
   }
 
-  // Filter link berdasarkan peran pengguna
   const filteredLinks = sidebarLinks.filter(
     (link) => !link.roles || (userRole && link.roles.includes(userRole as "admin" | "staff")),
   )

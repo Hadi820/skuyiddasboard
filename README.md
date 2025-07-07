@@ -1,19 +1,15 @@
 # 🏨 Hotel Management System
 
-A comprehensive hotel management system for managing reservations, clients, invoices, and more.
+Sistem manajemen hotel yang komprehensif untuk mengelola reservasi, klien, keuangan, dan kinerja staff.
 
-## 🚀 Features
+## 🚀 Fitur Utama
 
-- **🔐 Authentication & Authorization**: Secure login with role-based access control
-- **🏠 Dashboard**: Overview of key metrics and upcoming reservations
-- **📅 Reservation Management**: Create, view, edit, and delete reservations
-- **👥 Client Management**: Track client information and history
-- **💰 Financial Management**: Generate invoices and track payments
-- **📊 Reporting**: Generate reports on revenue, occupancy, and more
-- **👤 User Management**: Manage staff accounts and permissions
-- **🔄 GRO Commission System**: Track and manage GRO commissions
-- **💼 STOR Fund Management**: Manage STOR funds
-- **📱 Responsive Design**: Works on desktop, tablet, and mobile
+- **Dashboard**: Overview kinerja dan statistik
+- **Manajemen Reservasi**: CRUD reservasi hotel
+- **Manajemen Klien**: Database klien dan riwayat
+- **KPI Admin Staff**: Tracking performa GRO
+- **Sistem Keuangan**: Invoice dan laporan keuangan
+- **Authentication**: Login dengan role-based access
 
 ## 🛠️ Tech Stack
 
@@ -51,104 +47,39 @@ A comprehensive hotel management system for managing reservations, clients, invo
 - PostgreSQL 15+ (if running locally)
 - Redis 7+ (if running locally)
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-### Development Setup
-
-1. **Clone the repository**
+1. **Clone repository**
    \`\`\`bash
-   git clone https://github.com/yourusername/hotel-management.git
-   cd hotel-management
+   git clone <repository-url>
+   cd hotel-management-system
    \`\`\`
 
-2. **Set up environment variables**
-   \`\`\`bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   \`\`\`
-
-3. **Start development environment with Docker**
+2. **Start dengan Docker**
    \`\`\`bash
    docker-compose up
    \`\`\`
 
-4. **Or start development environment without Docker**
-   \`\`\`bash
-   # Install dependencies
-   cd backend && npm install
-   cd ../frontend && npm install
-   
-   # Start backend
-   cd backend && npm run dev
-   
-   # Start frontend (in another terminal)
-   cd frontend && npm run dev
-   \`\`\`
-
-5. **Access the application**
+3. **Akses aplikasi**
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3001/api
-   - API Documentation: http://localhost:3001/api-docs
+   - Database: PostgreSQL di port 5432
 
-### Production Deployment
-
-1. **Set up production environment variables**
-   \`\`\`bash
-   cp .env.example .env.prod
-   # Edit .env.prod with your production configuration
-   \`\`\`
-
-2. **Run the deployment script**
-   \`\`\`bash
-   chmod +x scripts/deploy.sh
-   ./scripts/deploy.sh latest .env.prod
-   \`\`\`
-
-3. **Or deploy manually**
-   \`\`\`bash
-   # Build images
-   docker build -t hotel-backend:latest ./backend
-   docker build -t hotel-frontend:latest ./frontend
-   
-   # Start services
-   docker-compose -f docker-compose.prod.yml up -d
-   
-   # Run migrations
-   docker-compose -f docker-compose.prod.yml exec backend npx prisma migrate deploy
-   \`\`\`
-
-## 📁 Project Structure
+## 📁 Struktur Project
 
 \`\`\`
-hotel-management/
-├── backend/                # Backend API
-│   ├── prisma/            # Database schema and migrations
-│   ├── src/               # Source code
-│   │   ├── config/        # Configuration
-│   │   ├── controllers/   # API controllers
-│   │   ├── middleware/    # Express middleware
-│   │   ├── models/        # Data models
-│   │   ├── routes/        # API routes
-│   │   ├── services/      # Business logic
-│   │   └── utils/         # Utility functions
-│   ├── Dockerfile         # Backend Docker configuration
-│   └── package.json       # Backend dependencies
-├── frontend/              # Next.js frontend
-│   ├── app/               # App Router pages
-│   ├── components/        # React components
-│   ├── hooks/             # Custom React hooks
-│   ├── lib/               # Utility libraries
-│   ├── public/            # Static assets
-│   ├── styles/            # Global styles
-│   ├── Dockerfile         # Frontend Docker configuration
-│   └── package.json       # Frontend dependencies
-├── database/              # Database scripts
-│   └── migrations/        # SQL migration scripts
-├── scripts/               # Utility scripts
-├── docs/                  # Documentation
-├── docker-compose.yml     # Development Docker Compose
-└── docker-compose.prod.yml # Production Docker Compose
+hotel-management-system/
+├── app/                    # Next.js pages
+├── components/             # React components
+├── lib/                    # Utilities
+├── services/               # Business logic
+├── docker-compose.yml      # Docker configuration
+└── package.json           # Dependencies
 \`\`\`
+
+## 🔐 Default Login
+
+- Email: admin@hotel.com
+- Password: admin123
 
 ## 🧪 Testing
 
@@ -177,7 +108,8 @@ This project uses GitHub Actions for continuous integration and deployment. See 
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License
+\`\`\`
 
 ## 👥 Contributors
 
@@ -189,8 +121,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Next.js](https://nextjs.org/) for the frontend framework
 - [Prisma](https://www.prisma.io/) for the ORM
 - [Express](https://expressjs.com/) for the backend framework
-\`\`\`
-
-## 10. Integration Test Script
-
-Mari buat script untuk menguji integrasi sistem:

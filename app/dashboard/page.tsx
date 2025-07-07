@@ -1,259 +1,153 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Sidebar } from "@/components/sidebar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DateRangePicker } from "@/components/date-range-picker"
-import { RevenueChart } from "@/components/revenue-chart"
-import { ReservationTable } from "@/components/reservation-table"
-import { UpcomingReservations } from "@/components/upcoming-reservations"
-import { RecentInvoices } from "@/components/recent-invoices"
-import { NotificationList } from "@/components/notification-list"
-import { QuickActions } from "@/components/quick-actions"
-import { KpiCards } from "@/components/kpi-cards"
-import { GroDashboard } from "@/components/gro-dashboard"
-import { getAllReservations, loadReservationsFromLocalStorage } from "@/services/reservation-service"
-import { BarChart3, CalendarDays, CreditCard, Users } from "lucide-react"
+import { useAuth } from "@/components/auth-provider"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { logout as authLogout } from "@/services/auth-service"
+import { useToast } from "@/components/ui/use-toast"
+import { formatCurrency } from "@/lib/utils"
 
 export default function DashboardPage() {
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    to: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-  })
-  const [reservations, setReservations] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState("overview")
+  const { user, logout } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
 
-  useEffect(() => {
-    // Load reservations from localStorage if available
-    loadReservationsFromLocalStorage()
-    setReservations(getAllReservations())
-  }, [])
+  const handleLogout = () => {
+    authLogout()
+    logout()
+    toast({
+      title: "Logout berhasil",
+      description: "Anda telah keluar dari sistem",
+    })
+    router.push("/login")
+  }
 
-  // Calculate summary metrics
-  const totalRevenue = reservations.reduce((sum, res) => sum + res.finalPrice, 0)
-  const totalProfit = reservations.reduce((sum, res) => sum + res.profit, 0)
-  const totalDeposit = reservations.reduce((sum, res) => sum + res.customerDeposit, 0)
-  const totalReservations = reservations.length
-  const completedReservations = reservations.filter((res) => res.status === "Selesai").length
-  const pendingReservations = reservations.filter((res) => res.status === "Proses").length
-  const cancelledReservations = reservations.filter((res) => res.status === "Batal").length
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(amount)
+  if (!user) {
+    router.push("/login")
+    return null
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f9fafb]">
-      <Sidebar />
-      <main className="flex-1 p-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h1 className="text-2xl font-semibold text-[#111827]">Dashboard</h1>
-          <DateRangePicker dateRange={dateRange} onDateRangeChange={setDateRange} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+              <p className="text-gray-600">Selamat datang, {user.name}</p>
+            </div>
+            <Button onClick={handleLogout} variant="outline">
+              Logout
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Reservasi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">245</div>
+              <p className="text-xs text-muted-foreground">+12% dari bulan lalu</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pendapatan</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(125000000)}</div>
+              <p className="text-xs text-muted-foreground">+8% dari bulan lalu</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Okupansi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">87%</div>
+              <p className="text-xs text-muted-foreground">+3% dari bulan lalu</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rating</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">4.8</div>
+              <p className="text-xs text-muted-foreground">+0.2 dari bulan lalu</p>
+            </CardContent>
+          </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 mb-6">
-            <TabsTrigger value="overview" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">Ringkasan</span>
-            </TabsTrigger>
-            <TabsTrigger value="reservations" className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              <span className="hidden sm:inline">Reservasi</span>
-            </TabsTrigger>
-            <TabsTrigger value="staff" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Admin Staff</span>
-            </TabsTrigger>
-            <TabsTrigger value="finance" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Keuangan</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total Pendapatan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-                  <p className="text-xs text-green-600 mt-1">+12% dari periode sebelumnya</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total Keuntungan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-                  <p className="text-xs text-green-600 mt-1">+8% dari periode sebelumnya</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total DP Masuk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalDeposit)}</div>
-                  <p className="text-xs text-green-600 mt-1">+15% dari periode sebelumnya</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Jumlah Reservasi</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{totalReservations}</div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-                      <span className="text-xs">{completedReservations} Selesai</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
-                      <span className="text-xs">{pendingReservations} Proses</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-                      <span className="text-xs">{cancelledReservations} Batal</span>
-                    </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Aktivitas Terbaru</CardTitle>
+              <CardDescription>Aktivitas sistem dalam 24 jam terakhir</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Reservasi baru dari John Doe</p>
+                    <p className="text-xs text-gray-500">2 jam yang lalu</p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Grafik Pendapatan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <RevenueChart />
-                </CardContent>
-              </Card>
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Aksi Cepat</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <QuickActions />
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Notifikasi</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <NotificationList />
-                  </CardContent>
-                </Card>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Check-in kamar 205</p>
+                    <p className="text-xs text-gray-500">4 jam yang lalu</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Pembayaran invoice #INV-001</p>
+                    <p className="text-xs text-gray-500">6 jam yang lalu</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2">
-                <Tabs defaultValue="reservations">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>Aktivitas Terbaru</CardTitle>
-                      <TabsList>
-                        <TabsTrigger value="reservations">Reservasi</TabsTrigger>
-                        <TabsTrigger value="invoices">Invoice</TabsTrigger>
-                      </TabsList>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <TabsContent value="reservations" className="mt-0">
-                      <ReservationTable />
-                    </TabsContent>
-                    <TabsContent value="invoices" className="mt-0">
-                      <RecentInvoices />
-                    </TabsContent>
-                  </CardContent>
-                </Tabs>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reservasi Mendatang</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <UpcomingReservations />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="reservations" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <KpiCards />
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Daftar Reservasi</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ReservationTable />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="staff" className="space-y-6">
-            <GroDashboard />
-          </TabsContent>
-
-          <TabsContent value="finance" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total Pendapatan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total Keuntungan</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalProfit)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Total DP Masuk</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalDeposit)}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Harga Stor</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{formatCurrency(totalRevenue - totalProfit)}</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Daftar Invoice</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <RecentInvoices />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Aksi cepat untuk tugas harian</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <Button className="h-20 flex flex-col items-center justify-center">
+                  <span className="text-lg mb-1">📅</span>
+                  <span className="text-sm">Reservasi Baru</span>
+                </Button>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center bg-transparent">
+                  <span className="text-lg mb-1">👥</span>
+                  <span className="text-sm">Kelola Tamu</span>
+                </Button>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center bg-transparent">
+                  <span className="text-lg mb-1">💰</span>
+                  <span className="text-sm">Laporan Keuangan</span>
+                </Button>
+                <Button variant="outline" className="h-20 flex flex-col items-center justify-center bg-transparent">
+                  <span className="text-lg mb-1">⚙️</span>
+                  <span className="text-sm">Pengaturan</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
