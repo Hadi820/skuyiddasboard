@@ -1,217 +1,237 @@
 export interface Invoice {
   id: string
-  invoiceNumber: string
+  number: string
   clientId: string
   clientName: string
-  issueDate: string
+  clientEmail: string
+  clientPhone: string
+  date: string
   dueDate: string
-  items: Array<{
-    description: string
-    quantity: number
-    unitPrice: string
-    amount: string
-  }>
+  status: "draft" | "sent" | "paid" | "overdue"
+  items: InvoiceItem[]
   subtotal: number
   tax: number
-  discount: number
   total: number
-  notes: string
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled"
-  paymentMethod?: string
+  notes?: string
   paymentDate?: string
+  paymentMethod?: string
 }
 
-// Mock data untuk invoice
-const invoicesData: Invoice[] = [
+export interface InvoiceItem {
+  id: string
+  description: string
+  quantity: number
+  rate: number
+  amount: number
+}
+
+// Mock invoice data
+const mockInvoices: Invoice[] = [
   {
     id: "INV001",
-    invoiceNumber: "INV/20250108/001",
-    clientId: "1",
-    clientName: "John Doe",
-    issueDate: "2025-01-08",
-    dueDate: "2025-01-22",
+    number: "INV-001",
+    clientId: "client1",
+    clientName: "PT. ABC Corporation",
+    clientEmail: "finance@abc.com",
+    clientPhone: "+62812345678",
+    date: "2024-01-15",
+    dueDate: "2024-02-15",
+    status: "paid",
     items: [
       {
+        id: "1",
         description: "Villa Booking - 3 Days",
-        quantity: 1,
-        unitPrice: "1500000",
-        amount: "1500000",
+        quantity: 3,
+        rate: 1500000,
+        amount: 4500000,
       },
     ],
-    subtotal: 1500000,
-    tax: 10,
-    discount: 0,
-    total: 1650000,
-    notes: "Booking untuk liburan keluarga",
-    status: "paid",
-    paymentMethod: "transfer",
-    paymentDate: "2025-01-10",
+    subtotal: 4500000,
+    tax: 450000,
+    total: 4950000,
+    paymentDate: "2024-01-20",
+    paymentMethod: "Bank Transfer",
   },
   {
     id: "INV002",
-    invoiceNumber: "INV/20250108/002",
-    clientId: "2",
-    clientName: "Jane Smith",
-    issueDate: "2025-01-08",
-    dueDate: "2025-01-22",
+    number: "INV-002",
+    clientId: "client2",
+    clientName: "John Doe",
+    clientEmail: "john@example.com",
+    clientPhone: "+62812345679",
+    date: "2024-01-20",
+    dueDate: "2024-02-20",
+    status: "sent",
     items: [
       {
+        id: "1",
         description: "Villa Booking - 2 Days",
-        quantity: 1,
-        unitPrice: "1000000",
-        amount: "1000000",
+        quantity: 2,
+        rate: 1500000,
+        amount: 3000000,
       },
     ],
-    subtotal: 1000000,
-    tax: 10,
-    discount: 5,
-    total: 1050000,
-    notes: "Booking untuk acara keluarga",
-    status: "sent",
+    subtotal: 3000000,
+    tax: 300000,
+    total: 3300000,
   },
   {
     id: "INV003",
-    invoiceNumber: "INV/20250108/003",
-    clientId: "3",
-    clientName: "Bob Johnson",
-    issueDate: "2025-01-05",
-    dueDate: "2025-01-19",
+    number: "INV-003",
+    clientId: "client3",
+    clientName: "Jane Smith",
+    clientEmail: "jane@example.com",
+    clientPhone: "+62812345680",
+    date: "2024-01-25",
+    dueDate: "2024-02-25",
+    status: "overdue",
     items: [
       {
+        id: "1",
         description: "Villa Booking - 5 Days",
-        quantity: 1,
-        unitPrice: "2500000",
-        amount: "2500000",
+        quantity: 5,
+        rate: 1500000,
+        amount: 7500000,
       },
     ],
-    subtotal: 2500000,
-    tax: 10,
-    discount: 0,
-    total: 2750000,
-    notes: "Booking untuk retreat perusahaan",
-    status: "overdue",
+    subtotal: 7500000,
+    tax: 750000,
+    total: 8250000,
   },
   {
     id: "INV004",
-    invoiceNumber: "INV/20250108/004",
-    clientId: "4",
-    clientName: "Alice Brown",
-    issueDate: "2025-01-08",
-    dueDate: "2025-01-22",
+    number: "INV-004",
+    clientId: "client4",
+    clientName: "PT. XYZ Ltd",
+    clientEmail: "billing@xyz.com",
+    clientPhone: "+62812345681",
+    date: "2024-02-01",
+    dueDate: "2024-03-01",
+    status: "draft",
     items: [
       {
-        description: "Villa Booking - 1 Day",
-        quantity: 1,
-        unitPrice: "500000",
-        amount: "500000",
+        id: "1",
+        description: "Villa Booking - 4 Days",
+        quantity: 4,
+        rate: 1500000,
+        amount: 6000000,
       },
     ],
-    subtotal: 500000,
-    tax: 10,
-    discount: 0,
-    total: 550000,
-    notes: "Booking untuk acara ulang tahun",
-    status: "draft",
+    subtotal: 6000000,
+    tax: 600000,
+    total: 6600000,
   },
   {
     id: "INV005",
-    invoiceNumber: "INV/20250108/005",
-    clientId: "5",
-    clientName: "Charlie Wilson",
-    issueDate: "2025-01-08",
-    dueDate: "2025-01-22",
+    number: "INV-005",
+    clientId: "client5",
+    clientName: "Michael Johnson",
+    clientEmail: "michael@example.com",
+    clientPhone: "+62812345682",
+    date: "2024-02-05",
+    dueDate: "2024-03-05",
+    status: "sent",
     items: [
       {
-        description: "Villa Booking - 4 Days",
-        quantity: 1,
-        unitPrice: "2000000",
-        amount: "2000000",
+        id: "1",
+        description: "Villa Booking - 7 Days",
+        quantity: 7,
+        rate: 1500000,
+        amount: 10500000,
       },
     ],
-    subtotal: 2000000,
-    tax: 10,
-    discount: 10,
-    total: 1980000,
-    notes: "Booking untuk honeymoon",
-    status: "paid",
-    paymentMethod: "cash",
-    paymentDate: "2025-01-09",
+    subtotal: 10500000,
+    tax: 1050000,
+    total: 11550000,
   },
   {
     id: "INV006",
-    invoiceNumber: "INV/20250108/006",
-    clientId: "6",
-    clientName: "Diana Prince",
-    issueDate: "2025-01-08",
-    dueDate: "2025-01-22",
+    number: "INV-006",
+    clientId: "client6",
+    clientName: "Sarah Wilson",
+    clientEmail: "sarah@example.com",
+    clientPhone: "+62812345683",
+    date: "2024-02-10",
+    dueDate: "2024-03-10",
+    status: "paid",
     items: [
       {
-        description: "Villa Booking - 3 Days Premium",
-        quantity: 1,
-        unitPrice: "1800000",
-        amount: "1800000",
+        id: "1",
+        description: "Villa Booking - 3 Days",
+        quantity: 3,
+        rate: 1500000,
+        amount: 4500000,
       },
       {
-        description: "Catering Service",
-        quantity: 3,
-        unitPrice: "200000",
-        amount: "600000",
+        id: "2",
+        description: "Additional Services",
+        quantity: 1,
+        rate: 500000,
+        amount: 500000,
       },
     ],
-    subtotal: 2400000,
-    tax: 10,
-    discount: 0,
-    total: 2640000,
-    notes: "Booking premium dengan layanan catering",
-    status: "sent",
+    subtotal: 5000000,
+    tax: 500000,
+    total: 5500000,
+    paymentDate: "2024-02-12",
+    paymentMethod: "Credit Card",
   },
 ]
 
-export function getAllInvoices(): Invoice[] {
-  return invoicesData
-}
+export const invoiceService = {
+  async getAllInvoices(): Promise<Invoice[]> {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    return mockInvoices
+  },
 
-export function getInvoiceById(id: string): Invoice | undefined {
-  return invoicesData.find((invoice) => invoice.id === id)
-}
+  async getInvoiceById(id: string): Promise<Invoice | null> {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    return mockInvoices.find((invoice) => invoice.id === id) || null
+  },
 
-export function addInvoice(invoice: Omit<Invoice, "id">): Invoice {
-  const newInvoice: Invoice = {
-    ...invoice,
-    id: `INV${String(invoicesData.length + 1).padStart(3, "0")}`,
-  }
-  invoicesData.push(newInvoice)
-  return newInvoice
-}
+  async createInvoice(invoice: Omit<Invoice, "id">): Promise<Invoice> {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const newInvoice = {
+      ...invoice,
+      id: `INV${String(mockInvoices.length + 1).padStart(3, "0")}`,
+    }
+    mockInvoices.push(newInvoice)
+    return newInvoice
+  },
 
-export function updateInvoice(id: string, updates: Partial<Invoice>): Invoice | undefined {
-  const index = invoicesData.findIndex((invoice) => invoice.id === id)
-  if (index !== -1) {
-    invoicesData[index] = { ...invoicesData[index], ...updates }
-    return invoicesData[index]
-  }
-  return undefined
-}
+  async updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | null> {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const index = mockInvoices.findIndex((invoice) => invoice.id === id)
+    if (index === -1) return null
 
-export function deleteInvoice(id: string): boolean {
-  const index = invoicesData.findIndex((invoice) => invoice.id === id)
-  if (index !== -1) {
-    invoicesData.splice(index, 1)
+    mockInvoices[index] = { ...mockInvoices[index], ...updates }
+    return mockInvoices[index]
+  },
+
+  async deleteInvoice(id: string): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const index = mockInvoices.findIndex((invoice) => invoice.id === id)
+    if (index === -1) return false
+
+    mockInvoices.splice(index, 1)
     return true
-  }
-  return false
-}
+  },
 
-export function getInvoiceStats() {
-  const totalPaid = invoicesData.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.total, 0)
+  async getInvoiceStats() {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const total = mockInvoices.reduce((sum, invoice) => sum + invoice.total, 0)
+    const paid = mockInvoices.filter((inv) => inv.status === "paid").reduce((sum, invoice) => sum + invoice.total, 0)
+    const pending = mockInvoices.filter((inv) => inv.status === "sent").reduce((sum, invoice) => sum + invoice.total, 0)
+    const overdue = mockInvoices
+      .filter((inv) => inv.status === "overdue")
+      .reduce((sum, invoice) => sum + invoice.total, 0)
 
-  const totalOutstanding = invoicesData.filter((inv) => inv.status === "sent").reduce((sum, inv) => sum + inv.total, 0)
-
-  const totalOverdue = invoicesData.filter((inv) => inv.status === "overdue").reduce((sum, inv) => sum + inv.total, 0)
-
-  return {
-    totalPaid,
-    totalOutstanding,
-    totalOverdue,
-  }
+    return {
+      total,
+      paid,
+      pending,
+      overdue,
+      count: mockInvoices.length,
+    }
+  },
 }

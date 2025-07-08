@@ -1,61 +1,63 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-// Daftar rute yang dapat diakses oleh staff
-const staffAccessibleRoutes = ["/clients", "/kpi-client", "/kpi-admin", "/login", "/logout"]
+// Halaman yang memerlukan autentikasi
+const protectedRoutes = [
+  "/dashboard",
+  "/kpi-admin",
+  "/kpi-client",
+  "/keuangan",
+  "/calendar",
+  "/clients",
+  "/reports",
+  "/settings",
+]
+
+// Halaman yang hanya bisa diakses jika belum login
+const authRoutes = ["/login"]
 
 export function middleware(request: NextRequest) {
-  // Mendapatkan cookie user
-  const userCookie = request.cookies.get("user")?.value
-  const isLoggedIn = !!userCookie
+  const { pathname } = request.nextUrl
 
-  // Path saat ini
-  const path = request.nextUrl.pathname
+  // Cek apakah user sudah login (ada token)
+  const token = request.cookies.get("token")?.value
+  const isAuthenticated = !!token
 
-  // Paths yang tidak memerlukan autentikasi
-  const publicPaths = ["/login"]
-  const isPublicPath = publicPaths.some((path) => request.nextUrl.pathname.startsWith(path))
-
-  // Jika user tidak login dan mencoba mengakses rute terproteksi
-  if (!isLoggedIn && !isPublicPath) {
-    const loginUrl = new URL("/login", request.url)
-    loginUrl.searchParams.set("callbackUrl", request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Jika user sudah login dan mencoba mengakses halaman login
-  if (isLoggedIn && isPublicPath) {
+  // Jika mengakses halaman auth tapi sudah login, redirect ke dashboard
+  if (authRoutes.includes(pathname) && isAuthenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Memeriksa peran pengguna jika sudah login
-  if (isLoggedIn && !isPublicPath) {
-    try {
-      const userData = JSON.parse(decodeURIComponent(userCookie))
-      const isStaff = userData.role === "staff"
+  // Jika mengakses halaman protected tapi belum login, redirect ke login
+  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route))
 
-      // Jika staff mencoba mengakses halaman yang tidak diizinkan
-      if (isStaff) {
-        const isAllowed = staffAccessibleRoutes.some((route) => path.startsWith(route))
+  if (isProtectedRoute && !isAuthenticated) {
+    const loginUrl = new URL("/login", request.url)
+    loginUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(loginUrl)
+  }
 
-        if (!isAllowed) {
-          // Redirect ke halaman yang diizinkan
-          return NextResponse.redirect(new URL("/clients", request.url))
-        }
-      }
-    } catch (error) {
-      console.error("Error parsing user data:", error)
-      // Jika terjadi error, logout user
-      const response = NextResponse.redirect(new URL("/login", request.url))
-      response.cookies.delete("user")
-      return response
+  // Redirect root ke dashboard jika sudah login, ke login jika belum
+  if (pathname === "/") {
+    if (isAuthenticated) {
+      return NextResponse.redirect(new URL("/dashboard", request.url))
+    } else {
+      return NextResponse.redirect(new URL("/login", request.url))
     }
   }
 
   return NextResponse.next()
 }
 
-// Konfigurasi matcher
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
+  ],
 }

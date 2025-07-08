@@ -1,86 +1,108 @@
 "use client"
-
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { LayoutDashboard, Users, Calendar, DollarSign, Settings, BarChart3, LogOut, User } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/components/auth-provider"
-import { logout } from "@/services/auth-service"
-import { useToast } from "@/components/ui/use-toast"
+import {
+  BarChart3,
+  Calendar,
+  DollarSign,
+  Home,
+  LogOut,
+  Settings,
+  TrendingUp,
+  Users,
+  FileText,
+  Hotel,
+  User,
+} from "lucide-react"
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
-  { name: "Clients", href: "/clients", icon: Users },
+  { name: "Dashboard", href: "/dashboard", icon: Home },
+  { name: "KPI Admin", href: "/kpi-admin", icon: BarChart3, roles: ["admin"] },
+  { name: "KPI Client", href: "/kpi-client", icon: TrendingUp },
   { name: "Keuangan", href: "/keuangan", icon: DollarSign },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Kalender", href: "/calendar", icon: Calendar },
+  { name: "Klien", href: "/clients", icon: Users },
+  { name: "Laporan", href: "/reports", icon: FileText },
+  { name: "Pengaturan", href: "/settings", icon: Settings, roles: ["admin"] },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const { user, setUser } = useAuth()
-  const { toast } = useToast()
+  const router = useRouter()
+  const { user, logout } = useAuth()
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      setUser(null)
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      })
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to logout. Please try again.",
-        variant: "destructive",
-      })
-    }
+  const handleLogout = () => {
+    logout()
+    router.push("/login")
   }
 
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.roles) return true
+    return item.roles.includes(user?.role || "")
+  })
+
   return (
-    <div className="flex h-full w-64 flex-col bg-gray-900">
-      <div className="flex h-16 items-center justify-center bg-gray-800">
-        <h1 className="text-xl font-bold text-white">Hotel Management</h1>
+    <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200">
+      {/* Header */}
+      <div className="flex h-16 items-center px-6 border-b border-gray-200">
+        <div className="flex items-center">
+          <Hotel className="h-8 w-8 text-blue-600" />
+          <span className="ml-2 text-xl font-bold text-gray-900">Hotel MS</span>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-4">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href
+      {/* User Info */}
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
+              <User className="h-6 w-6 text-white" />
+            </div>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+            <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-4 space-y-1">
+        {filteredNavigation.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                isActive ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white"
-              }`}
+              className={cn(
+                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                isActive ? "bg-blue-100 text-blue-700" : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
+              )}
             >
-              <item.icon className="mr-3 h-5 w-5" />
+              <item.icon
+                className={cn(
+                  "mr-3 h-5 w-5 flex-shrink-0",
+                  isActive ? "text-blue-700" : "text-gray-400 group-hover:text-gray-500",
+                )}
+              />
               {item.name}
             </Link>
           )
         })}
       </nav>
 
-      <div className="border-t border-gray-700 p-4">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600">
-            <User className="h-4 w-4 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user?.role?.toUpperCase()}</p>
-          </div>
-        </div>
+      {/* Logout Button */}
+      <div className="p-4 border-t border-gray-200">
         <Button
           onClick={handleLogout}
-          variant="outline"
-          size="sm"
-          className="w-full text-gray-300 border-gray-600 hover:bg-gray-700 bg-transparent"
+          variant="ghost"
+          className="w-full justify-start text-gray-700 hover:bg-red-50 hover:text-red-700"
         >
-          <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          <LogOut className="mr-3 h-5 w-5" />
+          Keluar
         </Button>
       </div>
     </div>

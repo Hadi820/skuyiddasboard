@@ -2,523 +2,384 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Sidebar } from "@/components/sidebar"
-import { format } from "date-fns"
-import { id } from "date-fns/locale"
-import { ArrowLeft, Download, Edit, Printer, Mail, MessageCircle } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { InvoiceForm } from "@/components/invoice-form"
-import { getInvoiceById } from "@/services/invoice-service"
-import { clientsData } from "@/data/clients"
-import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-import { downloadInvoicePDF } from "@/utils/pdf-generator"
+import { Sidebar } from "@/components/sidebar"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Printer, Download, Mail, MessageCircle } from "lucide-react"
+import { type Invoice, invoiceService } from "@/services/invoice-service"
+import { downloadInvoicePDF, printInvoice } from "@/utils/pdf-generator"
+import { formatCurrency } from "@/lib/utils"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function InvoiceDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const [invoice, setInvoice] = useState<any | null>(null)
-  const [client, setClient] = useState<any | null>(null)
-  const [showEditForm, setShowEditForm] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [invoice, setInvoice] = useState<Invoice | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate API call to get invoice data
-    const fetchInvoice = () => {
-      setIsLoading(true)
-      setTimeout(() => {
-        const foundInvoice = getInvoiceById(params.id as string)
-        if (foundInvoice) {
-          setInvoice(foundInvoice)
-          const foundClient = clientsData.find((client) => client.id === foundInvoice.clientId)
-          setClient(foundClient || null)
-        }
-        setIsLoading(false)
-      }, 500)
-    }
-
     if (params.id) {
-      fetchInvoice()
+      loadInvoice(params.id as string)
     }
   }, [params.id])
 
-  const handleSendEmail = () => {
-    if (!client?.email) {
+  const loadInvoice = async (id: string) => {
+    try {
+      const data = await invoiceService.getInvoiceById(id)
+      setInvoice(data)
+    } catch (error) {
+      console.error("Failed to load invoice:", error)
       toast({
-        title: "Email Tidak Tersedia",
-        description: "Klien tidak memiliki alamat email yang valid.",
+        title: "Error",
+        description: "Gagal memuat invoice",
         variant: "destructive",
       })
-      return
+    } finally {
+      setLoading(false)
     }
+  }
 
-    // Generate email content
-    const subject = `Invoice ${invoice.invoiceNumber} - Villa Management`
-    const body = `
-Kepada Yth. ${client.name},
+  const handleSendEmail = () => {
+    if (!invoice) return
 
-Terlampir invoice untuk reservasi Anda:
+    const subject = `Invoice ${invoice.number} - ${invoice.clientName}`
+    const body = `Halo ${invoice.clientName},
 
-Invoice: ${invoice.invoiceNumber}
-Tanggal: ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}
-Total: Rp ${invoice.total.toLocaleString()}
+Berikut adalah invoice untuk layanan hotel:
+
+Invoice Number: ${invoice.number}
+Tanggal: ${new Date(invoice.date).toLocaleDateString("id-ID")}
+Jatuh Tempo: ${new Date(invoice.dueDate).toLocaleDateString("id-ID")}
+Total: ${formatCurrency(invoice.total)}
 
 Terima kasih atas kepercayaan Anda.
 
-Hormat kami,
-Villa Management Team
-    `
+Best regards,
+Hotel Management Team`
 
-    // Open email client
-    const mailtoLink = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    window.open(mailtoLink, "_blank")
+    const mailtoLink = `mailto:${invoice.clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.open(mailtoLink)
 
     toast({
       title: "Email Dibuka",
-      description: "Aplikasi email telah dibuka dengan invoice yang siap dikirim.",
+      description: "Aplikasi email telah dibuka dengan template invoice",
     })
   }
 
   const handleSendWhatsApp = () => {
-    if (!client?.phone) {
-      toast({
-        title: "Nomor WhatsApp Tidak Tersedia",
-        description: "Klien tidak memiliki nomor WhatsApp yang valid.",
-        variant: "destructive",
-      })
-      return
+    if (!invoice) return
+
+    const message = `Halo ${invoice.clientName},
+
+Berikut adalah invoice untuk layanan hotel:
+
+📄 Invoice: ${invoice.number}
+📅 Tanggal: ${new Date(invoice.date).toLocaleDateString("id-ID")}
+⏰ Jatuh Tempo: ${new Date(invoice.dueDate).toLocaleDateString("id-ID")}
+💰 Total: ${formatCurrency(invoice.total)}
+
+Terima kasih atas kepercayaan Anda! 🙏`
+
+    // Format phone number for WhatsApp
+    let phoneNumber = invoice.clientPhone.replace(/\D/g, "")
+    if (phoneNumber.startsWith("0")) {
+      phoneNumber = "62" + phoneNumber.substring(1)
+    } else if (!phoneNumber.startsWith("62")) {
+      phoneNumber = "62" + phoneNumber
     }
 
-    // Generate WhatsApp message
-    const message = `
-*INVOICE VILLA MANAGEMENT*
-
-Kepada: ${client.name}
-Invoice: ${invoice.invoiceNumber}
-Tanggal: ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}
-Jatuh Tempo: ${format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}
-
-*Detail Tagihan:*
-${invoice.items.map((item: any) => `• ${item.description}: Rp ${Number(item.amount).toLocaleString()}`).join("\n")}
-
-*Total: Rp ${invoice.total.toLocaleString()}*
-
-Silakan lakukan pembayaran sebelum tanggal jatuh tempo.
-
-Terima kasih atas kepercayaan Anda.
-
-Villa Management Team
-0812-3456-7890
-    `
-
-    // Clean phone number
-    const phone = client.phone.replace(/[^0-9]/g, "")
-    const whatsappPhone = phone.startsWith("0") ? "62" + phone.substring(1) : phone
-
-    // Open WhatsApp
-    const whatsappLink = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+    const whatsappLink = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`
     window.open(whatsappLink, "_blank")
 
     toast({
       title: "WhatsApp Dibuka",
-      description: "WhatsApp telah dibuka dengan pesan invoice yang siap dikirim.",
+      description: "WhatsApp telah dibuka dengan pesan invoice",
     })
   }
 
-  const handlePrintInvoice = () => {
-    // Create a print-friendly version
-    const printWindow = window.open("", "_blank")
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Invoice ${invoice.invoiceNumber}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .company-details, .client-details { width: 45%; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-            .total-section { text-align: right; margin-top: 20px; }
-            .status { padding: 5px 10px; border-radius: 5px; display: inline-block; }
-            .status.paid { background-color: #d4edda; color: #155724; }
-            .status.sent { background-color: #d1ecf1; color: #0c5460; }
-            .status.overdue { background-color: #f8d7da; color: #721c24; }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>INVOICE</h1>
-            <span class="status ${invoice.status}">${
-              invoice.status === "paid"
-                ? "LUNAS"
-                : invoice.status === "sent"
-                  ? "TERKIRIM"
-                  : invoice.status === "overdue"
-                    ? "JATUH TEMPO"
-                    : "DRAFT"
-            }</span>
-          </div>
-          
-          <div class="invoice-details">
-            <div class="company-details">
-              <h3>Dari:</h3>
-              <p><strong>Villa Management</strong></p>
-              <p>Jl. Reservasi No. 123, Jakarta</p>
-              <p>Indonesia</p>
-              <p>info@villamanagement.com</p>
-              <p>0812-3456-7890</p>
-            </div>
-            <div class="client-details">
-              <h3>Untuk:</h3>
-              <p><strong>${client?.name || "N/A"}</strong></p>
-              ${client?.company ? `<p>${client.company}</p>` : ""}
-              ${client?.email ? `<p>${client.email}</p>` : ""}
-              ${client?.phone ? `<p>${client.phone}</p>` : ""}
-            </div>
-          </div>
+  const handlePrint = async () => {
+    if (!invoice) return
 
-          <div style="margin-bottom: 20px;">
-            <p><strong>No. Invoice:</strong> ${invoice.invoiceNumber}</p>
-            <p><strong>Tanggal Invoice:</strong> ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}</p>
-            <p><strong>Jatuh Tempo:</strong> ${format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}</p>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Deskripsi</th>
-                <th>Jumlah</th>
-                <th>Harga Satuan</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoice.items
-                .map(
-                  (item: any) => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>Rp ${Number(item.unitPrice).toLocaleString()}</td>
-                  <td>Rp ${Number(item.amount).toLocaleString()}</td>
-                </tr>
-              `,
-                )
-                .join("")}
-            </tbody>
-          </table>
-
-          <div class="total-section">
-            <p><strong>Subtotal: Rp ${invoice.subtotal.toLocaleString()}</strong></p>
-            ${invoice.tax > 0 ? `<p>Pajak (${invoice.tax}%): Rp ${((invoice.subtotal * invoice.tax) / 100).toLocaleString()}</p>` : ""}
-            ${invoice.discount > 0 ? `<p>Diskon (${invoice.discount}%): -Rp ${((invoice.subtotal * invoice.discount) / 100).toLocaleString()}</p>` : ""}
-            <h3>Total: Rp ${invoice.total.toLocaleString()}</h3>
-          </div>
-
-          ${
-            invoice.notes
-              ? `
-            <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
-              <h4>Catatan:</h4>
-              <p>${invoice.notes}</p>
-            </div>
-          `
-              : ""
-          }
-
-          <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
-            <p>Dicetak pada ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}</p>
-          </div>
-        </body>
-        </html>
-      `)
-      printWindow.document.close()
-      printWindow.print()
-    }
-
-    toast({
-      title: "Invoice Dicetak",
-      description: "Jendela cetak telah dibuka.",
-    })
-  }
-
-  const handleDownloadInvoice = () => {
-    if (invoice && client) {
-      downloadInvoicePDF(invoice, client.name)
-
+    try {
+      await printInvoice(invoice)
       toast({
-        title: "Invoice Diunduh",
-        description: "Invoice telah berhasil diunduh sebagai PDF.",
+        title: "Print Dimulai",
+        description: "Jendela print telah dibuka",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mencetak invoice",
+        variant: "destructive",
       })
     }
   }
 
-  if (isLoading) {
+  const handleDownloadPDF = async () => {
+    if (!invoice) return
+
+    try {
+      await downloadInvoicePDF(invoice)
+      toast({
+        title: "PDF Downloaded",
+        description: `Invoice ${invoice.number} berhasil diunduh`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Gagal mengunduh PDF",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    const variants = {
+      paid: "bg-green-100 text-green-800",
+      sent: "bg-blue-100 text-blue-800",
+      overdue: "bg-red-100 text-red-800",
+      draft: "bg-gray-100 text-gray-800",
+    }
+
+    const labels = {
+      paid: "Terbayar",
+      sent: "Terkirim",
+      overdue: "Jatuh Tempo",
+      draft: "Draft",
+    }
+
+    return <Badge className={variants[status as keyof typeof variants]}>{labels[status as keyof typeof labels]}</Badge>
+  }
+
+  if (loading) {
     return (
-      <div className="flex min-h-screen bg-[#f9fafb]">
+      <div className="flex h-screen bg-gray-100">
         <Sidebar />
-        <main className="flex-1 p-6">
-          <div className="animate-pulse">
-            <div className="h-8 w-64 bg-gray-200 rounded mb-6"></div>
-            <div className="h-[600px] bg-gray-100 rounded"></div>
-          </div>
-        </main>
+        <div className="flex-1 overflow-auto p-8">
+          <div className="text-center">Loading invoice...</div>
+        </div>
       </div>
     )
   }
 
   if (!invoice) {
     return (
-      <div className="flex min-h-screen bg-[#f9fafb]">
+      <div className="flex h-screen bg-gray-100">
         <Sidebar />
-        <main className="flex-1 p-6">
-          <div className="flex flex-col items-center justify-center h-[80vh]">
-            <h1 className="text-2xl font-semibold mb-4">Invoice Tidak Ditemukan</h1>
-            <p className="text-gray-500 mb-6">Invoice yang Anda cari tidak ditemukan atau telah dihapus.</p>
+        <div className="flex-1 overflow-auto p-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Invoice Tidak Ditemukan</h1>
             <Button asChild>
-              <Link href="/keuangan">Kembali ke Daftar Invoice</Link>
+              <Link href="/keuangan">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Kembali ke Keuangan
+              </Link>
             </Button>
           </div>
-        </main>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f9fafb]">
+    <div className="flex h-screen bg-gray-100">
       <Sidebar />
-      <main className="flex-1 p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h1 className="text-2xl font-semibold text-[#111827]">Detail Invoice</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <Button variant="outline" onClick={handleSendEmail} className="flex items-center gap-2 bg-transparent">
-                <Mail className="h-4 w-4" />
-                Email
+      <div className="flex-1 overflow-auto">
+        <div className="p-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Button variant="outline" asChild>
+                <Link href="/keuangan">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Kembali
+                </Link>
               </Button>
-              <Button variant="outline" onClick={handleSendWhatsApp} className="flex items-center gap-2 bg-transparent">
-                <MessageCircle className="h-4 w-4" />
-                WhatsApp
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Invoice {invoice.number}</h1>
+                <p className="text-gray-600">Detail invoice untuk {invoice.clientName}</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <Button onClick={handleSendEmail} variant="outline">
+                <Mail className="h-4 w-4 mr-2" />
+                Kirim Email
+              </Button>
+              <Button onClick={handleSendWhatsApp} variant="outline">
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Kirim WA
+              </Button>
+              <Button onClick={handlePrint} variant="outline">
+                <Printer className="h-4 w-4 mr-2" />
+                Cetak
+              </Button>
+              <Button onClick={handleDownloadPDF}>
+                <Download className="h-4 w-4 mr-2" />
+                Unduh PDF
               </Button>
             </div>
-            <Button variant="outline" onClick={handlePrintInvoice}>
-              <Printer className="h-4 w-4 mr-2" />
-              Cetak
-            </Button>
-            <Button variant="outline" onClick={handleDownloadInvoice}>
-              <Download className="h-4 w-4 mr-2" />
-              Unduh PDF
-            </Button>
-            <Button onClick={() => setShowEditForm(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Invoice Details */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle>Invoice Details</CardTitle>
+                      <CardDescription>Informasi lengkap invoice</CardDescription>
+                    </div>
+                    {getStatusBadge(invoice.status)}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    <div>
+                      <h3 className="font-semibold mb-2">Informasi Invoice</h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Nomor:</span> {invoice.number}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Tanggal:</span>{" "}
+                          {new Date(invoice.date).toLocaleDateString("id-ID")}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Jatuh Tempo:</span>{" "}
+                          {new Date(invoice.dueDate).toLocaleDateString("id-ID")}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Status:</span> {invoice.status}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold mb-2">Informasi Klien</h3>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Nama:</span> {invoice.clientName}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Email:</span> {invoice.clientEmail}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Telepon:</span> {invoice.clientPhone}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Items Table */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="text-left py-3 px-4">Deskripsi</th>
+                          <th className="text-left py-3 px-4">Qty</th>
+                          <th className="text-left py-3 px-4">Harga</th>
+                          <th className="text-left py-3 px-4">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoice.items.map((item) => (
+                          <tr key={item.id} className="border-t">
+                            <td className="py-3 px-4">{item.description}</td>
+                            <td className="py-3 px-4">{item.quantity}</td>
+                            <td className="py-3 px-4">{formatCurrency(item.rate)}</td>
+                            <td className="py-3 px-4 font-medium">{formatCurrency(item.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totals */}
+                  <div className="mt-6 space-y-2">
+                    <div className="flex justify-between">
+                      <span>Subtotal:</span>
+                      <span>{formatCurrency(invoice.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pajak:</span>
+                      <span>{formatCurrency(invoice.tax)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2">
+                      <span>Total:</span>
+                      <span>{formatCurrency(invoice.total)}</span>
+                    </div>
+                  </div>
+
+                  {invoice.notes && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-semibold mb-2">Catatan:</h4>
+                      <p className="text-sm text-gray-600">{invoice.notes}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Payment Info */}
+            <div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informasi Pembayaran</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {invoice.status === "paid" && invoice.paymentDate ? (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="text-green-800 font-medium">✓ Sudah Dibayar</div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Tanggal Bayar:</span>{" "}
+                          {new Date(invoice.paymentDate).toLocaleDateString("id-ID")}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Metode:</span> {invoice.paymentMethod}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Jumlah:</span> {formatCurrency(invoice.total)}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-yellow-50 rounded-lg">
+                        <div className="text-yellow-800 font-medium">⏳ Belum Dibayar</div>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Jatuh Tempo:</span>{" "}
+                          {new Date(invoice.dueDate).toLocaleDateString("id-ID")}
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Jumlah:</span> {formatCurrency(invoice.total)}
+                        </div>
+                      </div>
+
+                      {invoice.status === "overdue" && (
+                        <div className="p-3 bg-red-50 rounded-lg">
+                          <div className="text-red-800 font-medium">⚠️ Terlambat</div>
+                          <div className="text-red-600 text-sm mt-1">Invoice sudah melewati tanggal jatuh tempo</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-
-        <Card className="mb-6 print:shadow-none">
-          <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
-            <div>
-              <CardTitle className="text-xl">Invoice #{invoice.invoiceNumber}</CardTitle>
-              <p className="text-sm text-gray-500">
-                Dibuat pada {format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}
-              </p>
-            </div>
-            <div>
-              <span
-                className={`inline-flex px-3 py-1 text-sm font-medium rounded-md ${
-                  invoice.status === "paid"
-                    ? "bg-[#dcfce7] text-[#166534]"
-                    : invoice.status === "sent"
-                      ? "bg-[#dbeafe] text-[#1e40af]"
-                      : invoice.status === "overdue"
-                        ? "bg-[#fee2e2] text-[#991b1b]"
-                        : invoice.status === "draft"
-                          ? "bg-[#e5e7eb] text-[#374151]"
-                          : "bg-[#fef9c3] text-[#854d0e]"
-                }`}
-              >
-                {invoice.status === "paid"
-                  ? "Terbayar"
-                  : invoice.status === "sent"
-                    ? "Terkirim"
-                    : invoice.status === "overdue"
-                      ? "Jatuh Tempo"
-                      : invoice.status === "draft"
-                        ? "Draft"
-                        : "Dibatalkan"}
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Dari</h3>
-                <p className="font-medium">Villa Management</p>
-                <p>Jl. Reservasi No. 123, Jakarta</p>
-                <p>Indonesia</p>
-                <p>info@villamanagement.com</p>
-                <p>0812-3456-7890</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Untuk</h3>
-                {client && (
-                  <>
-                    <p className="font-medium">{client.name}</p>
-                    {client.company && <p>{client.company}</p>}
-                    {client.email && <p>{client.email}</p>}
-                    {client.phone && <p>{client.phone}</p>}
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Nomor Invoice</h3>
-                <p>{invoice.invoiceNumber}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Tanggal Invoice</h3>
-                <p>{format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Tanggal Jatuh Tempo</h3>
-                <p>{format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}</p>
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <table className="w-full">
-                <thead className="bg-gray-50 text-left">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                      Jumlah
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                      Harga Satuan
-                    </th>
-                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {invoice.items?.map((item: any, index: number) => (
-                    <tr key={index}>
-                      <td className="px-4 py-4">{item.description}</td>
-                      <td className="px-4 py-4 text-right">{item.quantity}</td>
-                      <td className="px-4 py-4 text-right">Rp {Number.parseInt(item.unitPrice).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-right">Rp {Number.parseInt(item.amount).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end">
-              <div className="w-full md:w-1/3">
-                <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span>Rp {invoice.subtotal.toLocaleString()}</span>
-                </div>
-                {invoice.tax > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">Pajak ({invoice.tax}%)</span>
-                    <span>Rp {((invoice.subtotal * invoice.tax) / 100).toLocaleString()}</span>
-                  </div>
-                )}
-                {invoice.discount > 0 && (
-                  <div className="flex justify-between py-2">
-                    <span className="text-gray-600">Diskon ({invoice.discount}%)</span>
-                    <span>- Rp {((invoice.subtotal * invoice.discount) / 100).toLocaleString()}</span>
-                  </div>
-                )}
-                <div className="flex justify-between py-2 border-t border-gray-200 font-bold">
-                  <span>Total</span>
-                  <span>Rp {invoice.total.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {invoice.notes && (
-              <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Catatan</h3>
-                <p className="text-gray-700">{invoice.notes}</p>
-              </div>
-            )}
-
-            {invoice.status === "paid" && (
-              <div className="mt-8 p-4 bg-green-50 rounded-lg">
-                <h3 className="text-sm font-medium text-green-700 mb-2">Informasi Pembayaran</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Metode Pembayaran</p>
-                    <p className="font-medium">
-                      {invoice.paymentMethod === "transfer"
-                        ? "Transfer Bank"
-                        : invoice.paymentMethod === "cash"
-                          ? "Tunai"
-                          : invoice.paymentMethod === "credit_card"
-                            ? "Kartu Kredit"
-                            : invoice.paymentMethod === "debit_card"
-                              ? "Kartu Debit"
-                              : "E-Wallet"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Tanggal Pembayaran</p>
-                    <p className="font-medium">
-                      {invoice.paymentDate
-                        ? format(new Date(invoice.paymentDate), "dd MMMM yyyy", { locale: id })
-                        : "-"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Jumlah Dibayar</p>
-                    <p className="font-medium">Rp {invoice.total.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Dialog open={showEditForm} onOpenChange={setShowEditForm}>
-          <DialogContent className="max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>Edit Invoice</DialogTitle>
-            </DialogHeader>
-            <InvoiceForm
-              invoice={invoice}
-              onSuccess={() => {
-                setShowEditForm(false)
-                toast({
-                  title: "Invoice Diperbarui",
-                  description: "Invoice telah berhasil diperbarui.",
-                })
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      </main>
+      </div>
     </div>
   )
 }

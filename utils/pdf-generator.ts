@@ -1,119 +1,92 @@
-import jsPDF from "jspdf"
-import "jspdf-autotable"
-import { format } from "date-fns"
-import { id } from "date-fns/locale"
+import type { Invoice } from "@/services/invoice-service"
 
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF
-  }
-}
+export const generateInvoicePDF = async (invoice: Invoice) => {
+  // Dynamic import to avoid SSR issues
+  const jsPDF = (await import("jspdf")).default
+  const autoTable = (await import("jspdf-autotable")).default
 
-export function downloadInvoicePDF(invoice: any, clientName: string) {
   const doc = new jsPDF()
 
   // Header
   doc.setFontSize(20)
-  doc.setFont("helvetica", "bold")
-  doc.text("INVOICE", 105, 30, { align: "center" })
+  doc.setTextColor(40, 40, 40)
+  doc.text("INVOICE", 20, 30)
 
-  // Status badge
+  // Company info
   doc.setFontSize(12)
-  doc.setFont("helvetica", "normal")
-  const statusText =
-    invoice.status === "paid"
-      ? "LUNAS"
-      : invoice.status === "sent"
-        ? "TERKIRIM"
-        : invoice.status === "overdue"
-          ? "JATUH TEMPO"
-          : "DRAFT"
-  doc.text(statusText, 105, 40, { align: "center" })
-
-  // Company details
-  doc.setFontSize(10)
-  doc.setFont("helvetica", "bold")
-  doc.text("Dari:", 20, 60)
-  doc.setFont("helvetica", "normal")
-  doc.text("Villa Management", 20, 70)
-  doc.text("Jl. Reservasi No. 123, Jakarta", 20, 80)
-  doc.text("Indonesia", 20, 90)
-  doc.text("info@villamanagement.com", 20, 100)
-  doc.text("0812-3456-7890", 20, 110)
-
-  // Client details
-  doc.setFont("helvetica", "bold")
-  doc.text("Untuk:", 120, 60)
-  doc.setFont("helvetica", "normal")
-  doc.text(clientName, 120, 70)
+  doc.text("Hotel Management System", 20, 45)
+  doc.text("Jl. Example No. 123", 20, 55)
+  doc.text("Jakarta, Indonesia", 20, 65)
+  doc.text("Phone: +62 21 1234567", 20, 75)
 
   // Invoice details
-  doc.setFont("helvetica", "bold")
-  doc.text("No. Invoice:", 20, 130)
-  doc.setFont("helvetica", "normal")
-  doc.text(invoice.invoiceNumber, 60, 130)
+  doc.text(`Invoice Number: ${invoice.number}`, 120, 45)
+  doc.text(`Date: ${new Date(invoice.date).toLocaleDateString("id-ID")}`, 120, 55)
+  doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString("id-ID")}`, 120, 65)
+  doc.text(`Status: ${invoice.status.toUpperCase()}`, 120, 75)
 
-  doc.setFont("helvetica", "bold")
-  doc.text("Tanggal:", 20, 140)
-  doc.setFont("helvetica", "normal")
-  doc.text(format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id }), 60, 140)
-
-  doc.setFont("helvetica", "bold")
-  doc.text("Jatuh Tempo:", 120, 140)
-  doc.setFont("helvetica", "normal")
-  doc.text(format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id }), 160, 140)
+  // Client info
+  doc.setFontSize(14)
+  doc.text("Bill To:", 20, 95)
+  doc.setFontSize(12)
+  doc.text(invoice.clientName, 20, 105)
+  doc.text(invoice.clientEmail, 20, 115)
+  doc.text(invoice.clientPhone, 20, 125)
 
   // Items table
-  const tableData = invoice.items.map((item: any) => [
+  const tableData = invoice.items.map((item) => [
     item.description,
     item.quantity.toString(),
-    `Rp ${Number(item.unitPrice).toLocaleString()}`,
-    `Rp ${Number(item.amount).toLocaleString()}`,
+    `Rp ${item.rate.toLocaleString("id-ID")}`,
+    `Rp ${item.amount.toLocaleString("id-ID")}`,
   ])
 
-  doc.autoTable({
-    startY: 160,
-    head: [["Deskripsi", "Jumlah", "Harga Satuan", "Total"]],
+  autoTable(doc, {
+    startY: 140,
+    head: [["Description", "Qty", "Rate", "Amount"]],
     body: tableData,
     theme: "grid",
-    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
-    styles: { fontSize: 9 },
+    headStyles: { fillColor: [41, 128, 185] },
+    styles: { fontSize: 10 },
   })
 
   // Totals
   const finalY = (doc as any).lastAutoTable.finalY + 20
+  doc.text(`Subtotal: Rp ${invoice.subtotal.toLocaleString("id-ID")}`, 120, finalY)
+  doc.text(`Tax: Rp ${invoice.tax.toLocaleString("id-ID")}`, 120, finalY + 10)
+  doc.setFontSize(14)
+  doc.text(`Total: Rp ${invoice.total.toLocaleString("id-ID")}`, 120, finalY + 25)
 
-  doc.setFont("helvetica", "normal")
-  doc.text("Subtotal:", 120, finalY)
-  doc.text(`Rp ${invoice.subtotal.toLocaleString()}`, 160, finalY)
-
-  if (invoice.tax > 0) {
-    doc.text(`Pajak (${invoice.tax}%):`, 120, finalY + 10)
-    doc.text(`Rp ${((invoice.subtotal * invoice.tax) / 100).toLocaleString()}`, 160, finalY + 10)
+  // Payment info if paid
+  if (invoice.status === "paid" && invoice.paymentDate) {
+    doc.setFontSize(12)
+    doc.text(`Payment Date: ${new Date(invoice.paymentDate).toLocaleDateString("id-ID")}`, 20, finalY + 40)
+    doc.text(`Payment Method: ${invoice.paymentMethod}`, 20, finalY + 50)
   }
-
-  if (invoice.discount > 0) {
-    doc.text(`Diskon (${invoice.discount}%):`, 120, finalY + 20)
-    doc.text(`-Rp ${((invoice.subtotal * invoice.discount) / 100).toLocaleString()}`, 160, finalY + 20)
-  }
-
-  doc.setFont("helvetica", "bold")
-  doc.text("Total:", 120, finalY + 30)
-  doc.text(`Rp ${invoice.total.toLocaleString()}`, 160, finalY + 30)
 
   // Notes
   if (invoice.notes) {
-    doc.setFont("helvetica", "bold")
-    doc.text("Catatan:", 20, finalY + 50)
-    doc.setFont("helvetica", "normal")
-    const splitNotes = doc.splitTextToSize(invoice.notes, 170)
-    doc.text(splitNotes, 20, finalY + 60)
+    doc.text("Notes:", 20, finalY + 65)
+    doc.text(invoice.notes, 20, finalY + 75)
   }
 
-  // Footer
-  doc.setFontSize(8)
-  doc.text(`Dicetak pada ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}`, 105, 280, { align: "center" })
+  return doc
+}
 
-  // Download
-  doc.save(`Invoice-${invoice.invoiceNumber}.pdf`)
+export const downloadInvoicePDF = async (invoice: Invoice) => {
+  const doc = await generateInvoicePDF(invoice)
+  doc.save(`Invoice-${invoice.number}.pdf`)
+}
+
+export const printInvoice = async (invoice: Invoice) => {
+  const doc = await generateInvoicePDF(invoice)
+  const pdfBlob = doc.output("blob")
+  const pdfUrl = URL.createObjectURL(pdfBlob)
+
+  const printWindow = window.open(pdfUrl)
+  if (printWindow) {
+    printWindow.onload = () => {
+      printWindow.print()
+    }
+  }
 }
