@@ -4,16 +4,13 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import { CalendarIcon, Filter, Plus, Search } from "lucide-react"
+import { Plus, Search, Eye } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { InvoiceForm } from "@/components/invoice-form"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getAllInvoices, getInvoiceStats } from "@/services/invoice-service"
 
 export function InvoiceList() {
@@ -21,7 +18,6 @@ export function InvoiceList() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
   const [invoices, setInvoices] = useState<any[]>([])
   const [stats, setStats] = useState({
     totalPaid: 0,
@@ -41,7 +37,7 @@ export function InvoiceList() {
     setStats(getInvoiceStats())
   }
 
-  // Filter invoices based on search term, status, and date
+  // Filter invoices based on search term and status
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -49,10 +45,7 @@ export function InvoiceList() {
 
     const matchesStatus = statusFilter === "all" || invoice.status === statusFilter
 
-    const matchesDate =
-      !dateFilter || format(new Date(invoice.issueDate), "yyyy-MM-dd") === format(dateFilter, "yyyy-MM-dd")
-
-    return matchesSearch && matchesStatus && matchesDate
+    return matchesSearch && matchesStatus
   })
 
   // Sort invoices by issue date (newest first)
@@ -69,6 +62,24 @@ export function InvoiceList() {
     setShowInvoiceForm(false)
     setSelectedInvoice(null)
     loadInvoices()
+  }
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      paid: { bg: "bg-green-100", text: "text-green-800", label: "Terbayar" },
+      sent: { bg: "bg-blue-100", text: "text-blue-800", label: "Terkirim" },
+      overdue: { bg: "bg-red-100", text: "text-red-800", label: "Jatuh Tempo" },
+      draft: { bg: "bg-gray-100", text: "text-gray-800", label: "Draft" },
+      cancelled: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Dibatalkan" },
+    }
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft
+
+    return (
+      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    )
   }
 
   return (
@@ -133,38 +144,18 @@ export function InvoiceList() {
               />
             </div>
             <div className="flex flex-col md:flex-row gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filter status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Terkirim</SelectItem>
-                  <SelectItem value="paid">Terbayar</SelectItem>
-                  <SelectItem value="overdue">Jatuh Tempo</SelectItem>
-                  <SelectItem value="cancelled">Dibatalkan</SelectItem>
-                </SelectContent>
-              </Select>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-[180px] justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFilter ? format(dateFilter, "dd MMMM yyyy", { locale: id }) : <span>Filter tanggal</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={dateFilter} onSelect={setDateFilter} initialFocus />
-                  {dateFilter && (
-                    <div className="p-3 border-t border-gray-100">
-                      <Button variant="ghost" size="sm" onClick={() => setDateFilter(undefined)} className="w-full">
-                        Reset
-                      </Button>
-                    </div>
-                  )}
-                </PopoverContent>
-              </Popover>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Semua Status</option>
+                <option value="draft">Draft</option>
+                <option value="sent">Terkirim</option>
+                <option value="paid">Terbayar</option>
+                <option value="overdue">Jatuh Tempo</option>
+                <option value="cancelled">Dibatalkan</option>
+              </select>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -190,8 +181,10 @@ export function InvoiceList() {
                 ) : (
                   sortedInvoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-[#4f46e5]">
-                        <Link href={`/keuangan/invoice/${invoice.id}`}>{invoice.invoiceNumber}</Link>
+                      <td className="px-4 py-3 text-sm font-medium text-blue-600">
+                        <Link href={`/keuangan/invoice/${invoice.id}`} className="hover:underline">
+                          {invoice.invoiceNumber}
+                        </Link>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{invoice.clientName}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">
@@ -201,35 +194,14 @@ export function InvoiceList() {
                         {format(new Date(invoice.dueDate), "dd MMM yyyy", { locale: id })}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium">Rp {invoice.total.toLocaleString()}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${
-                            invoice.status === "paid"
-                              ? "bg-[#dcfce7] text-[#166534]"
-                              : invoice.status === "sent"
-                                ? "bg-[#dbeafe] text-[#1e40af]"
-                                : invoice.status === "overdue"
-                                  ? "bg-[#fee2e2] text-[#991b1b]"
-                                  : invoice.status === "draft"
-                                    ? "bg-[#e5e7eb] text-[#374151]"
-                                    : "bg-[#fef9c3] text-[#854d0e]"
-                          }`}
-                        >
-                          {invoice.status === "paid"
-                            ? "Terbayar"
-                            : invoice.status === "sent"
-                              ? "Terkirim"
-                              : invoice.status === "overdue"
-                                ? "Jatuh Tempo"
-                                : invoice.status === "draft"
-                                  ? "Draft"
-                                  : "Dibatalkan"}
-                        </span>
-                      </td>
+                      <td className="px-4 py-3">{getStatusBadge(invoice.status)}</td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
                           <Button variant="ghost" size="sm" asChild>
-                            <Link href={`/keuangan/invoice/${invoice.id}`}>Detail</Link>
+                            <Link href={`/keuangan/invoice/${invoice.id}`}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              Detail
+                            </Link>
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleEditInvoice(invoice)}>
                             Edit

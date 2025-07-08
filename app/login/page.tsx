@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/components/auth-provider"
-import { login as authLogin } from "@/services/auth-service"
+import { login } from "@/services/auth-service"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const { login } = useAuth()
+  const { setUser } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -24,25 +24,17 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const user = await authLogin(email, password)
-      if (user) {
-        login(user)
-        toast({
-          title: "Login berhasil",
-          description: `Selamat datang, ${user.name}!`,
-        })
-        router.push("/dashboard")
-      } else {
-        toast({
-          title: "Login gagal",
-          description: "Email atau password salah",
-          variant: "destructive",
-        })
-      }
+      const user = await login(email, password)
+      setUser(user)
+      toast({
+        title: "Login successful",
+        description: `Welcome back, ${user.name}!`,
+      })
+      router.push("/dashboard")
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat login",
+        title: "Login failed",
+        description: "Invalid email or password. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -53,59 +45,38 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Hotel Management</CardTitle>
-          <CardDescription className="text-center">Masuk ke sistem manajemen hotel</CardDescription>
+        <CardHeader>
+          <CardTitle>Login</CardTitle>
+          <CardDescription>Enter your credentials to access the hotel management system</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
+            <div>
               <Input
-                id="email"
                 type="email"
-                placeholder="admin@hotel.com"
+                placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
+            <div>
               <Input
-                id="password"
                 type="password"
-                placeholder="password"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Masuk..." : "Masuk"}
+              {isLoading ? "Logging in..." : "Login"}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium mb-2">Demo Credentials:</p>
-            <div className="text-xs space-y-1">
-              <p>
-                <strong>Admin:</strong> admin@hotel.com / password
-              </p>
-              <p>
-                <strong>Staff:</strong> staff@hotel.com / password
-              </p>
-              <p>
-                <strong>GRO:</strong> gro@hotel.com / password
-              </p>
-              <p>
-                <strong>STOR:</strong> stor@hotel.com / password
-              </p>
-            </div>
+          <div className="mt-4 text-sm text-gray-600">
+            <p>Demo credentials:</p>
+            <p>admin@hotel.com / password</p>
+            <p>staff@hotel.com / password</p>
           </div>
         </CardContent>
       </Card>

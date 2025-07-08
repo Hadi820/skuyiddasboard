@@ -1,212 +1,119 @@
-import { jsPDF } from "jspdf"
-import autoTable from "jspdf-autotable"
+import jsPDF from "jspdf"
+import "jspdf-autotable"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import type { Invoice } from "@/services/invoice-service"
 
-// Fungsi untuk format currency
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF
+  }
 }
 
-// Fungsi untuk generate PDF invoice
-export const generateInvoicePDF = (invoice: Invoice, clientName: string): jsPDF => {
-  // Inisialisasi dokumen PDF
+export function downloadInvoicePDF(invoice: any, clientName: string) {
   const doc = new jsPDF()
-
-  // Set font
-  doc.setFont("helvetica")
 
   // Header
   doc.setFontSize(20)
-  doc.text("INVOICE", 105, 20, { align: "center" })
+  doc.setFont("helvetica", "bold")
+  doc.text("INVOICE", 105, 30, { align: "center" })
 
-  // Status invoice
+  // Status badge
   doc.setFontSize(12)
-  let statusText = ""
-  let statusColor = [0, 0, 0] // Default black
-
-  switch (invoice.status) {
-    case "paid":
-      statusText = "LUNAS"
-      statusColor = [39, 174, 96] // Green
-      break
-    case "sent":
-      statusText = "TERKIRIM"
-      statusColor = [41, 128, 185] // Blue
-      break
-    case "overdue":
-      statusText = "JATUH TEMPO"
-      statusColor = [192, 57, 43] // Red
-      break
-    case "draft":
-      statusText = "DRAFT"
-      statusColor = [127, 140, 141] // Gray
-      break
-    case "cancelled":
-      statusText = "DIBATALKAN"
-      statusColor = [127, 140, 141] // Gray
-      break
-  }
-
-  // Add status with color
-  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2])
-  doc.text(statusText, 105, 30, { align: "center" })
-  doc.setTextColor(0, 0, 0) // Reset to black
-
-  // Logo placeholder (in a real app, you would add your logo)
-  doc.rect(15, 15, 40, 20)
-  doc.setFontSize(10)
-  doc.text("LOGO", 35, 25, { align: "center" })
-
-  // Invoice details
-  doc.setFontSize(10)
-  doc.text(`No. Invoice: ${invoice.invoiceNumber}`, 15, 45)
-  doc.text(`Tanggal: ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}`, 15, 50)
-  doc.text(`Jatuh Tempo: ${format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}`, 15, 55)
+  doc.setFont("helvetica", "normal")
+  const statusText =
+    invoice.status === "paid"
+      ? "LUNAS"
+      : invoice.status === "sent"
+        ? "TERKIRIM"
+        : invoice.status === "overdue"
+          ? "JATUH TEMPO"
+          : "DRAFT"
+  doc.text(statusText, 105, 40, { align: "center" })
 
   // Company details
   doc.setFontSize(10)
-  doc.text("Dari:", 15, 70)
-  doc.setFontSize(11)
-  doc.text("Villa Reservasi", 15, 75)
-  doc.setFontSize(10)
-  doc.text("Jl. Reservasi No. 123, Jakarta", 15, 80)
-  doc.text("Indonesia", 15, 85)
-  doc.text("info@villareservasi.com", 15, 90)
-  doc.text("0812-3456-7890", 15, 95)
+  doc.setFont("helvetica", "bold")
+  doc.text("Dari:", 20, 60)
+  doc.setFont("helvetica", "normal")
+  doc.text("Villa Management", 20, 70)
+  doc.text("Jl. Reservasi No. 123, Jakarta", 20, 80)
+  doc.text("Indonesia", 20, 90)
+  doc.text("info@villamanagement.com", 20, 100)
+  doc.text("0812-3456-7890", 20, 110)
 
   // Client details
-  doc.setFontSize(10)
-  doc.text("Untuk:", 120, 70)
-  doc.setFontSize(11)
-  doc.text(clientName, 120, 75)
+  doc.setFont("helvetica", "bold")
+  doc.text("Untuk:", 120, 60)
+  doc.setFont("helvetica", "normal")
+  doc.text(clientName, 120, 70)
 
-  // Table for invoice items
-  const tableColumn = ["Deskripsi", "Jumlah", "Harga Satuan", "Total"]
-  const tableRows: any[] = []
+  // Invoice details
+  doc.setFont("helvetica", "bold")
+  doc.text("No. Invoice:", 20, 130)
+  doc.setFont("helvetica", "normal")
+  doc.text(invoice.invoiceNumber, 60, 130)
 
-  // Add rows to the table
-  invoice.items.forEach((item) => {
-    const itemData = [
-      item.description,
-      item.quantity,
-      formatCurrency(Number(item.unitPrice)),
-      formatCurrency(Number(item.amount)),
-    ]
-    tableRows.push(itemData)
-  })
+  doc.setFont("helvetica", "bold")
+  doc.text("Tanggal:", 20, 140)
+  doc.setFont("helvetica", "normal")
+  doc.text(format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id }), 60, 140)
 
-  // Generate the table
-  autoTable(doc, {
-    head: [tableColumn],
-    body: tableRows,
-    startY: 110,
+  doc.setFont("helvetica", "bold")
+  doc.text("Jatuh Tempo:", 120, 140)
+  doc.setFont("helvetica", "normal")
+  doc.text(format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id }), 160, 140)
+
+  // Items table
+  const tableData = invoice.items.map((item: any) => [
+    item.description,
+    item.quantity.toString(),
+    `Rp ${Number(item.unitPrice).toLocaleString()}`,
+    `Rp ${Number(item.amount).toLocaleString()}`,
+  ])
+
+  doc.autoTable({
+    startY: 160,
+    head: [["Deskripsi", "Jumlah", "Harga Satuan", "Total"]],
+    body: tableData,
     theme: "grid",
-    headStyles: {
-      fillColor: [41, 128, 185],
-      textColor: 255,
-      fontStyle: "bold",
-    },
-    alternateRowStyles: {
-      fillColor: [240, 240, 240],
-    },
+    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+    styles: { fontSize: 9 },
   })
 
-  // Calculate the final Y position after the table
-  const finalY = (doc as any).lastAutoTable.finalY + 10
+  // Totals
+  const finalY = (doc as any).lastAutoTable.finalY + 20
 
-  // Summary
-  doc.text("Subtotal:", 130, finalY + 10)
-  doc.text(formatCurrency(invoice.subtotal), 175, finalY + 10, { align: "right" })
+  doc.setFont("helvetica", "normal")
+  doc.text("Subtotal:", 120, finalY)
+  doc.text(`Rp ${invoice.subtotal.toLocaleString()}`, 160, finalY)
 
   if (invoice.tax > 0) {
-    doc.text(`Pajak (${invoice.tax}%):`, 130, finalY + 15)
-    doc.text(formatCurrency((invoice.subtotal * invoice.tax) / 100), 175, finalY + 15, { align: "right" })
+    doc.text(`Pajak (${invoice.tax}%):`, 120, finalY + 10)
+    doc.text(`Rp ${((invoice.subtotal * invoice.tax) / 100).toLocaleString()}`, 160, finalY + 10)
   }
 
   if (invoice.discount > 0) {
-    doc.text(`Diskon (${invoice.discount}%):`, 130, finalY + 20)
-    doc.text(`- ${formatCurrency((invoice.subtotal * invoice.discount) / 100)}`, 175, finalY + 20, { align: "right" })
+    doc.text(`Diskon (${invoice.discount}%):`, 120, finalY + 20)
+    doc.text(`-Rp ${((invoice.subtotal * invoice.discount) / 100).toLocaleString()}`, 160, finalY + 20)
   }
 
-  // Total
-  doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
-  doc.text("Total:", 130, finalY + 30)
-  doc.text(formatCurrency(invoice.total), 175, finalY + 30, { align: "right" })
-  doc.setFont("helvetica", "normal")
-  doc.setFontSize(10)
-
-  // Payment information if paid
-  if (invoice.status === "paid" && invoice.paymentDate) {
-    doc.setDrawColor(39, 174, 96) // Green border
-    doc.setFillColor(240, 255, 240) // Light green background
-    doc.roundedRect(15, finalY + 40, 180, 30, 3, 3, "FD")
-
-    doc.setTextColor(39, 174, 96) // Green text
-    doc.setFontSize(11)
-    doc.text("Informasi Pembayaran", 105, finalY + 50, { align: "center" })
-    doc.setFontSize(10)
-    doc.text(
-      `Metode Pembayaran: ${
-        invoice.paymentMethod === "transfer"
-          ? "Transfer Bank"
-          : invoice.paymentMethod === "cash"
-            ? "Tunai"
-            : invoice.paymentMethod === "credit_card"
-              ? "Kartu Kredit"
-              : invoice.paymentMethod === "debit_card"
-                ? "Kartu Debit"
-                : "E-Wallet"
-      }`,
-      20,
-      finalY + 55,
-    )
-    doc.text(
-      `Tanggal Pembayaran: ${format(new Date(invoice.paymentDate), "dd MMMM yyyy", { locale: id })}`,
-      20,
-      finalY + 60,
-    )
-    doc.text(`Jumlah Dibayar: ${formatCurrency(invoice.total)}`, 20, finalY + 65)
-    doc.setTextColor(0, 0, 0) // Reset to black
-  }
+  doc.text("Total:", 120, finalY + 30)
+  doc.text(`Rp ${invoice.total.toLocaleString()}`, 160, finalY + 30)
 
   // Notes
   if (invoice.notes) {
-    const notesY = invoice.status === "paid" ? finalY + 80 : finalY + 40
-    doc.setFontSize(10)
-    doc.text("Catatan:", 15, notesY)
-    doc.setFontSize(9)
-
-    // Split notes into multiple lines if needed
-    const splitNotes = doc.splitTextToSize(invoice.notes, 180)
-    doc.text(splitNotes, 15, notesY + 5)
+    doc.setFont("helvetica", "bold")
+    doc.text("Catatan:", 20, finalY + 50)
+    doc.setFont("helvetica", "normal")
+    const splitNotes = doc.splitTextToSize(invoice.notes, 170)
+    doc.text(splitNotes, 20, finalY + 60)
   }
 
   // Footer
-  const pageCount = doc.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.text(
-      `Halaman ${i} dari ${pageCount} - Dicetak pada ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}`,
-      105,
-      doc.internal.pageSize.height - 10,
-      { align: "center" },
-    )
-  }
+  doc.setFontSize(8)
+  doc.text(`Dicetak pada ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}`, 105, 280, { align: "center" })
 
-  return doc
-}
-
-// Fungsi untuk download PDF invoice
-export const downloadInvoicePDF = (invoice: Invoice, clientName: string): void => {
-  const doc = generateInvoicePDF(invoice, clientName)
+  // Download
   doc.save(`Invoice-${invoice.invoiceNumber}.pdf`)
 }

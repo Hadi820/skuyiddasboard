@@ -1,138 +1,217 @@
-import { invoicesData } from "@/data/invoices"
-import { saveToStorage, getFromStorage, STORAGE_KEYS } from "./storage-service"
-
-// Tipe data untuk invoice
 export interface Invoice {
   id: string
   invoiceNumber: string
   clientId: string
   clientName: string
-  reservationId?: string
   issueDate: string
   dueDate: string
+  items: Array<{
+    description: string
+    quantity: number
+    unitPrice: string
+    amount: string
+  }>
   subtotal: number
   tax: number
   discount: number
   total: number
-  notes?: string
+  notes: string
   status: "draft" | "sent" | "paid" | "overdue" | "cancelled"
   paymentMethod?: string
   paymentDate?: string
-  items: InvoiceItem[]
 }
 
-// Tipe data untuk item invoice
-export interface InvoiceItem {
-  description: string
-  quantity: number
-  unitPrice: string
-  amount: string
-}
+// Mock data untuk invoice
+const invoicesData: Invoice[] = [
+  {
+    id: "INV001",
+    invoiceNumber: "INV/20250108/001",
+    clientId: "1",
+    clientName: "John Doe",
+    issueDate: "2025-01-08",
+    dueDate: "2025-01-22",
+    items: [
+      {
+        description: "Villa Booking - 3 Days",
+        quantity: 1,
+        unitPrice: "1500000",
+        amount: "1500000",
+      },
+    ],
+    subtotal: 1500000,
+    tax: 10,
+    discount: 0,
+    total: 1650000,
+    notes: "Booking untuk liburan keluarga",
+    status: "paid",
+    paymentMethod: "transfer",
+    paymentDate: "2025-01-10",
+  },
+  {
+    id: "INV002",
+    invoiceNumber: "INV/20250108/002",
+    clientId: "2",
+    clientName: "Jane Smith",
+    issueDate: "2025-01-08",
+    dueDate: "2025-01-22",
+    items: [
+      {
+        description: "Villa Booking - 2 Days",
+        quantity: 1,
+        unitPrice: "1000000",
+        amount: "1000000",
+      },
+    ],
+    subtotal: 1000000,
+    tax: 10,
+    discount: 5,
+    total: 1050000,
+    notes: "Booking untuk acara keluarga",
+    status: "sent",
+  },
+  {
+    id: "INV003",
+    invoiceNumber: "INV/20250108/003",
+    clientId: "3",
+    clientName: "Bob Johnson",
+    issueDate: "2025-01-05",
+    dueDate: "2025-01-19",
+    items: [
+      {
+        description: "Villa Booking - 5 Days",
+        quantity: 1,
+        unitPrice: "2500000",
+        amount: "2500000",
+      },
+    ],
+    subtotal: 2500000,
+    tax: 10,
+    discount: 0,
+    total: 2750000,
+    notes: "Booking untuk retreat perusahaan",
+    status: "overdue",
+  },
+  {
+    id: "INV004",
+    invoiceNumber: "INV/20250108/004",
+    clientId: "4",
+    clientName: "Alice Brown",
+    issueDate: "2025-01-08",
+    dueDate: "2025-01-22",
+    items: [
+      {
+        description: "Villa Booking - 1 Day",
+        quantity: 1,
+        unitPrice: "500000",
+        amount: "500000",
+      },
+    ],
+    subtotal: 500000,
+    tax: 10,
+    discount: 0,
+    total: 550000,
+    notes: "Booking untuk acara ulang tahun",
+    status: "draft",
+  },
+  {
+    id: "INV005",
+    invoiceNumber: "INV/20250108/005",
+    clientId: "5",
+    clientName: "Charlie Wilson",
+    issueDate: "2025-01-08",
+    dueDate: "2025-01-22",
+    items: [
+      {
+        description: "Villa Booking - 4 Days",
+        quantity: 1,
+        unitPrice: "2000000",
+        amount: "2000000",
+      },
+    ],
+    subtotal: 2000000,
+    tax: 10,
+    discount: 10,
+    total: 1980000,
+    notes: "Booking untuk honeymoon",
+    status: "paid",
+    paymentMethod: "cash",
+    paymentDate: "2025-01-09",
+  },
+  {
+    id: "INV006",
+    invoiceNumber: "INV/20250108/006",
+    clientId: "6",
+    clientName: "Diana Prince",
+    issueDate: "2025-01-08",
+    dueDate: "2025-01-22",
+    items: [
+      {
+        description: "Villa Booking - 3 Days Premium",
+        quantity: 1,
+        unitPrice: "1800000",
+        amount: "1800000",
+      },
+      {
+        description: "Catering Service",
+        quantity: 3,
+        unitPrice: "200000",
+        amount: "600000",
+      },
+    ],
+    subtotal: 2400000,
+    tax: 10,
+    discount: 0,
+    total: 2640000,
+    notes: "Booking premium dengan layanan catering",
+    status: "sent",
+  },
+]
 
-// Inisialisasi data invoice dari localStorage atau data default
-let invoices = getFromStorage<Invoice[]>(STORAGE_KEYS.INVOICES, invoicesData)
-
-// Fungsi untuk mendapatkan semua invoice
 export function getAllInvoices(): Invoice[] {
-  return invoices
+  return invoicesData
 }
 
-// Fungsi untuk mendapatkan invoice berdasarkan ID
 export function getInvoiceById(id: string): Invoice | undefined {
-  return invoices.find((invoice) => invoice.id === id)
+  return invoicesData.find((invoice) => invoice.id === id)
 }
 
-// Fungsi untuk menambahkan invoice baru
 export function addInvoice(invoice: Omit<Invoice, "id">): Invoice {
-  // Generate ID baru
-  const newId = `INV${String(invoices.length + 1).padStart(3, "0")}`
-  const newInvoice = { ...invoice, id: newId }
-
-  invoices.push(newInvoice)
-
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.INVOICES, invoices)
-
+  const newInvoice: Invoice = {
+    ...invoice,
+    id: `INV${String(invoicesData.length + 1).padStart(3, "0")}`,
+  }
+  invoicesData.push(newInvoice)
   return newInvoice
 }
 
-// Fungsi untuk memperbarui invoice yang ada
-export function updateInvoice(id: string, invoice: Partial<Invoice>): Invoice | null {
-  const index = invoices.findIndex((inv) => inv.id === id)
-  if (index === -1) return null
-
-  invoices[index] = { ...invoices[index], ...invoice }
-
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.INVOICES, invoices)
-
-  return invoices[index]
+export function updateInvoice(id: string, updates: Partial<Invoice>): Invoice | undefined {
+  const index = invoicesData.findIndex((invoice) => invoice.id === id)
+  if (index !== -1) {
+    invoicesData[index] = { ...invoicesData[index], ...updates }
+    return invoicesData[index]
+  }
+  return undefined
 }
 
-// Fungsi untuk menghapus invoice
 export function deleteInvoice(id: string): boolean {
-  const index = invoices.findIndex((invoice) => invoice.id === id)
-  if (index === -1) return false
-
-  invoices.splice(index, 1)
-
-  // Simpan ke localStorage
-  saveToStorage(STORAGE_KEYS.INVOICES, invoices)
-
-  return true
+  const index = invoicesData.findIndex((invoice) => invoice.id === id)
+  if (index !== -1) {
+    invoicesData.splice(index, 1)
+    return true
+  }
+  return false
 }
 
-// Fungsi untuk mendapatkan invoice berdasarkan filter
-export function getFilteredInvoices(filters: {
-  status?: string
-  clientId?: string
-  dateFrom?: Date
-  dateTo?: Date
-  searchTerm?: string
-}): Invoice[] {
-  return invoices.filter((invoice) => {
-    const matchesStatus = !filters.status || filters.status === "all" || invoice.status === filters.status
-
-    const matchesClient = !filters.clientId || invoice.clientId === filters.clientId
-
-    const issueDate = new Date(invoice.issueDate)
-    const matchesDateFrom = !filters.dateFrom || issueDate >= filters.dateFrom
-    const matchesDateTo = !filters.dateTo || issueDate <= filters.dateTo
-
-    const matchesSearch =
-      !filters.searchTerm ||
-      invoice.invoiceNumber.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-      invoice.clientName.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-      (invoice.notes && invoice.notes.toLowerCase().includes(filters.searchTerm.toLowerCase()))
-
-    return matchesStatus && matchesClient && matchesDateFrom && matchesDateTo && matchesSearch
-  })
-}
-
-// Fungsi untuk mendapatkan statistik invoice
 export function getInvoiceStats() {
-  const totalPaid = invoices.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.total, 0)
+  const totalPaid = invoicesData.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + inv.total, 0)
 
-  const totalOutstanding = invoices
-    .filter((inv) => inv.status !== "paid" && inv.status !== "cancelled")
-    .reduce((sum, inv) => sum + inv.total, 0)
+  const totalOutstanding = invoicesData.filter((inv) => inv.status === "sent").reduce((sum, inv) => sum + inv.total, 0)
 
-  const totalOverdue = invoices.filter((inv) => inv.status === "overdue").reduce((sum, inv) => sum + inv.total, 0)
+  const totalOverdue = invoicesData.filter((inv) => inv.status === "overdue").reduce((sum, inv) => sum + inv.total, 0)
 
   return {
     totalPaid,
     totalOutstanding,
     totalOverdue,
-    count: invoices.length,
-    paidCount: invoices.filter((inv) => inv.status === "paid").length,
-    overdueCount: invoices.filter((inv) => inv.status === "overdue").length,
   }
 }
-
-// Fungsi untuk memuat data dari localStorage
-export function loadInvoicesFromStorage(): void {
-  invoices = getFromStorage<Invoice[]>(STORAGE_KEYS.INVOICES, invoicesData)
-}
-
-// Inisialisasi data
-loadInvoicesFromStorage()

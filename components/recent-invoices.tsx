@@ -1,83 +1,96 @@
 "use client"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import { Button } from "@/components/ui/button"
+import { Eye, FileText } from "lucide-react"
 import Link from "next/link"
-import { reservationsData } from "@/data/reservations"
+import { getAllInvoices } from "@/services/invoice-service"
 
 export function RecentInvoices() {
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(amount)
+  const [invoices, setInvoices] = useState<any[]>([])
+
+  useEffect(() => {
+    // Get recent invoices (last 5)
+    const allInvoices = getAllInvoices()
+    const recentInvoices = allInvoices
+      .sort((a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime())
+      .slice(0, 5)
+    setInvoices(recentInvoices)
+  }, [])
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      paid: { bg: "bg-green-100", text: "text-green-800", label: "Terbayar" },
+      sent: { bg: "bg-blue-100", text: "text-blue-800", label: "Terkirim" },
+      overdue: { bg: "bg-red-100", text: "text-red-800", label: "Jatuh Tempo" },
+      draft: { bg: "bg-gray-100", text: "text-gray-800", label: "Draft" },
+      cancelled: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Dibatalkan" },
+    }
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft
+
+    return (
+      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-md ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    )
   }
 
-  // Get reservations with payment status
-  const invoices = [...reservationsData]
-    .filter((res) => res.status !== "batal")
-    .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
-    .slice(0, 5)
-
   return (
-    <div className="space-y-4">
-      {invoices.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          <p>Tidak ada invoice terbaru</p>
-        </div>
-      ) : (
-        invoices.map((invoice) => {
-          const isPaid = invoice.status === "selesai"
-          const isPartiallyPaid = invoice.customerDeposit > 0 && invoice.status === "proses"
-
-          return (
-            <div key={invoice.id} className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h3 className="font-medium text-[#111827]">{invoice.bookingCode}</h3>
-                  <p className="text-sm text-gray-500">{invoice.customerName}</p>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-lg font-semibold">Invoice Terbaru</CardTitle>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/keuangan">
+            <FileText className="h-4 w-4 mr-2" />
+            Lihat Semua
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {invoices.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>Belum ada invoice</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {invoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h4 className="font-medium text-blue-600">
+                      <Link href={`/keuangan/invoice/${invoice.id}`} className="hover:underline">
+                        {invoice.invoiceNumber}
+                      </Link>
+                    </h4>
+                    {getStatusBadge(invoice.status)}
+                  </div>
+                  <p className="text-sm text-gray-600">{invoice.clientName}</p>
+                  <p className="text-sm text-gray-500">
+                    {format(new Date(invoice.issueDate), "dd MMM yyyy", { locale: id })}
+                  </p>
                 </div>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    isPaid
-                      ? "bg-[#dcfce7] text-[#166534]"
-                      : isPartiallyPaid
-                        ? "bg-[#fef9c3] text-[#854d0e]"
-                        : "bg-[#fee2e2] text-[#991b1b]"
-                  }`}
-                >
-                  {isPaid ? "Lunas" : isPartiallyPaid ? "DP" : "Belum Bayar"}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm mb-2">
-                <div>
-                  <p className="text-gray-500">Tanggal</p>
-                  <p>{format(new Date(invoice.bookingDate), "dd MMM yyyy", { locale: id })}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Total</p>
-                  <p className="font-medium">{formatCurrency(invoice.finalPrice)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                <div>
-                  <p className="text-gray-500">DP Tamu</p>
-                  <p>{formatCurrency(invoice.customerDeposit)}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Sisa</p>
-                  <p>{formatCurrency(invoice.remainingPayment)}</p>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Link href={`/keuangan/invoice/${invoice.id}`}>
-                  <Button variant="ghost" size="sm" className="text-[#4f46e5] hover:text-[#4f46e5] hover:bg-[#eef2ff]">
-                    Lihat Detail
+                <div className="text-right">
+                  <p className="font-semibold text-lg">Rp {invoice.total.toLocaleString()}</p>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={`/keuangan/invoice/${invoice.id}`}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      Detail
+                    </Link>
                   </Button>
-                </Link>
+                </div>
               </div>
-            </div>
-          )
-        })
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

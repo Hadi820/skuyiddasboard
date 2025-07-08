@@ -7,14 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Sidebar } from "@/components/sidebar"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import { ArrowLeft, Download, Edit, Printer, Send } from "lucide-react"
+import { ArrowLeft, Download, Edit, Printer, Mail, MessageCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { InvoiceForm } from "@/components/invoice-form"
-import { invoicesData } from "@/data/invoices"
+import { getInvoiceById } from "@/services/invoice-service"
 import { clientsData } from "@/data/clients"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import Link from "next/link"
-// Tambahkan import untuk PDF generator
 import { downloadInvoicePDF } from "@/utils/pdf-generator"
 
 export default function InvoiceDetailPage() {
@@ -31,10 +30,10 @@ export default function InvoiceDetailPage() {
     const fetchInvoice = () => {
       setIsLoading(true)
       setTimeout(() => {
-        const foundInvoice = invoicesData.find((inv) => inv.id === params.id)
+        const foundInvoice = getInvoiceById(params.id as string)
         if (foundInvoice) {
           setInvoice(foundInvoice)
-          const foundClient = clientsData.find((client) => client.id.toString() === foundInvoice.clientId)
+          const foundClient = clientsData.find((client) => client.id === foundInvoice.clientId)
           setClient(foundClient || null)
         }
         setIsLoading(false)
@@ -46,18 +45,214 @@ export default function InvoiceDetailPage() {
     }
   }, [params.id])
 
-  const handleSendInvoice = () => {
+  const handleSendEmail = () => {
+    if (!client?.email) {
+      toast({
+        title: "Email Tidak Tersedia",
+        description: "Klien tidak memiliki alamat email yang valid.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Generate email content
+    const subject = `Invoice ${invoice.invoiceNumber} - Villa Management`
+    const body = `
+Kepada Yth. ${client.name},
+
+Terlampir invoice untuk reservasi Anda:
+
+Invoice: ${invoice.invoiceNumber}
+Tanggal: ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}
+Total: Rp ${invoice.total.toLocaleString()}
+
+Terima kasih atas kepercayaan Anda.
+
+Hormat kami,
+Villa Management Team
+    `
+
+    // Open email client
+    const mailtoLink = `mailto:${client.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.open(mailtoLink, "_blank")
+
     toast({
-      title: "Invoice Terkirim",
-      description: "Invoice telah berhasil dikirim ke email klien.",
+      title: "Email Dibuka",
+      description: "Aplikasi email telah dibuka dengan invoice yang siap dikirim.",
+    })
+  }
+
+  const handleSendWhatsApp = () => {
+    if (!client?.phone) {
+      toast({
+        title: "Nomor WhatsApp Tidak Tersedia",
+        description: "Klien tidak memiliki nomor WhatsApp yang valid.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Generate WhatsApp message
+    const message = `
+*INVOICE VILLA MANAGEMENT*
+
+Kepada: ${client.name}
+Invoice: ${invoice.invoiceNumber}
+Tanggal: ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}
+Jatuh Tempo: ${format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}
+
+*Detail Tagihan:*
+${invoice.items.map((item: any) => `• ${item.description}: Rp ${Number(item.amount).toLocaleString()}`).join("\n")}
+
+*Total: Rp ${invoice.total.toLocaleString()}*
+
+Silakan lakukan pembayaran sebelum tanggal jatuh tempo.
+
+Terima kasih atas kepercayaan Anda.
+
+Villa Management Team
+0812-3456-7890
+    `
+
+    // Clean phone number
+    const phone = client.phone.replace(/[^0-9]/g, "")
+    const whatsappPhone = phone.startsWith("0") ? "62" + phone.substring(1) : phone
+
+    // Open WhatsApp
+    const whatsappLink = `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(message)}`
+    window.open(whatsappLink, "_blank")
+
+    toast({
+      title: "WhatsApp Dibuka",
+      description: "WhatsApp telah dibuka dengan pesan invoice yang siap dikirim.",
     })
   }
 
   const handlePrintInvoice = () => {
-    window.print()
+    // Create a print-friendly version
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Invoice ${invoice.invoiceNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
+            .company-details, .client-details { width: 45%; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .total-section { text-align: right; margin-top: 20px; }
+            .status { padding: 5px 10px; border-radius: 5px; display: inline-block; }
+            .status.paid { background-color: #d4edda; color: #155724; }
+            .status.sent { background-color: #d1ecf1; color: #0c5460; }
+            .status.overdue { background-color: #f8d7da; color: #721c24; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>INVOICE</h1>
+            <span class="status ${invoice.status}">${
+              invoice.status === "paid"
+                ? "LUNAS"
+                : invoice.status === "sent"
+                  ? "TERKIRIM"
+                  : invoice.status === "overdue"
+                    ? "JATUH TEMPO"
+                    : "DRAFT"
+            }</span>
+          </div>
+          
+          <div class="invoice-details">
+            <div class="company-details">
+              <h3>Dari:</h3>
+              <p><strong>Villa Management</strong></p>
+              <p>Jl. Reservasi No. 123, Jakarta</p>
+              <p>Indonesia</p>
+              <p>info@villamanagement.com</p>
+              <p>0812-3456-7890</p>
+            </div>
+            <div class="client-details">
+              <h3>Untuk:</h3>
+              <p><strong>${client?.name || "N/A"}</strong></p>
+              ${client?.company ? `<p>${client.company}</p>` : ""}
+              ${client?.email ? `<p>${client.email}</p>` : ""}
+              ${client?.phone ? `<p>${client.phone}</p>` : ""}
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <p><strong>No. Invoice:</strong> ${invoice.invoiceNumber}</p>
+            <p><strong>Tanggal Invoice:</strong> ${format(new Date(invoice.issueDate), "dd MMMM yyyy", { locale: id })}</p>
+            <p><strong>Jatuh Tempo:</strong> ${format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id })}</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Deskripsi</th>
+                <th>Jumlah</th>
+                <th>Harga Satuan</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items
+                .map(
+                  (item: any) => `
+                <tr>
+                  <td>${item.description}</td>
+                  <td>${item.quantity}</td>
+                  <td>Rp ${Number(item.unitPrice).toLocaleString()}</td>
+                  <td>Rp ${Number(item.amount).toLocaleString()}</td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+
+          <div class="total-section">
+            <p><strong>Subtotal: Rp ${invoice.subtotal.toLocaleString()}</strong></p>
+            ${invoice.tax > 0 ? `<p>Pajak (${invoice.tax}%): Rp ${((invoice.subtotal * invoice.tax) / 100).toLocaleString()}</p>` : ""}
+            ${invoice.discount > 0 ? `<p>Diskon (${invoice.discount}%): -Rp ${((invoice.subtotal * invoice.discount) / 100).toLocaleString()}</p>` : ""}
+            <h3>Total: Rp ${invoice.total.toLocaleString()}</h3>
+          </div>
+
+          ${
+            invoice.notes
+              ? `
+            <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+              <h4>Catatan:</h4>
+              <p>${invoice.notes}</p>
+            </div>
+          `
+              : ""
+          }
+
+          <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+            <p>Dicetak pada ${format(new Date(), "dd MMMM yyyy HH:mm", { locale: id })}</p>
+          </div>
+        </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.print()
+    }
+
+    toast({
+      title: "Invoice Dicetak",
+      description: "Jendela cetak telah dibuka.",
+    })
   }
 
-  // Ubah fungsi handleDownloadInvoice
   const handleDownloadInvoice = () => {
     if (invoice && client) {
       downloadInvoicePDF(invoice, client.name)
@@ -112,10 +307,16 @@ export default function InvoiceDetailPage() {
             <h1 className="text-2xl font-semibold text-[#111827]">Detail Invoice</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={handleSendInvoice}>
-              <Send className="h-4 w-4 mr-2" />
-              Kirim
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" onClick={handleSendEmail} className="flex items-center gap-2 bg-transparent">
+                <Mail className="h-4 w-4" />
+                Email
+              </Button>
+              <Button variant="outline" onClick={handleSendWhatsApp} className="flex items-center gap-2 bg-transparent">
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </Button>
+            </div>
             <Button variant="outline" onClick={handlePrintInvoice}>
               <Printer className="h-4 w-4 mr-2" />
               Cetak
@@ -169,10 +370,10 @@ export default function InvoiceDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Dari</h3>
-                <p className="font-medium">Villa Reservasi</p>
+                <p className="font-medium">Villa Management</p>
                 <p>Jl. Reservasi No. 123, Jakarta</p>
                 <p>Indonesia</p>
-                <p>info@villareservasi.com</p>
+                <p>info@villamanagement.com</p>
                 <p>0812-3456-7890</p>
               </div>
               <div>
